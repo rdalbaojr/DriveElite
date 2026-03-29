@@ -192,3 +192,5 @@ else:
                         st.session_state.otp_pending = True
                         st.rerun()
                 else: st.error("⚠️ Please fill out all required fields and upload BOTH IDs.")
+
+
