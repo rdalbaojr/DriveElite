@@ -1,0 +1,140 @@
+import streamlit as st
+import pandas as pd
+import os
+import datetime
+from database_utils import get_connection
+
+os.makedirs("uploads", exist_ok=True)
+def save_file(uploaded_file):
+    if uploaded_file:
+        path = os.path.join("uploads", uploaded_file.name)
+        with open(path, "wb") as f: f.write(uploaded_file.getbuffer())
+        return path
+    return None
+
+st.set_page_config(page_title="DriveElite Registration", layout="wide")
+st.markdown("""
+<style>
+    .stApp { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
+    div[data-baseweb="input"] > div, div[data-baseweb="base-input"], textarea {
+        background-color: #ffffff !important; border: 2px solid #cbd5e1 !important; border-radius: 6px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+conn = get_connection()
+
+st.title("🚗 Welcome to DriveElite")
+st.write("Join the premier peer-to-peer car rental network. Select your account type below to begin.")
+
+# --- AFFILIATE IS NOW FIRST ---
+reg_type = st.radio("I want to register as a:", ["Select...", "Affiliate", "Renter"], horizontal=True)
+st.divider()
+
+if reg_type == "Affiliate":
+    with st.sidebar:
+        st.header("💼 Affiliate Policies")
+        st.markdown("""
+        *1. Vehicle Condition:* Cars must be registered, insured, safe, and clean.
+        *2. Platform Fee:* DriveElite retains a 15% fee. You receive 85%.
+        *3. Payouts:* Processed once journey is "COMPLETED".
+        *4. Handover:* You must verify Renter ID and complete digital checklist.
+        *5. Visibility:* Cars listed as "LIVE" must be ready to book.
+        """)
+        st.info("You must agree to these terms to register.")
+
+    st.subheader("💼 Affiliate Partner Registration")
+    with st.form("affiliate_reg_form"):
+        st.write("*Personal Information*")
+        c1, c2, c3 = st.columns(3)
+        first_name = c1.text_input("First Name").title()
+        middle_name = c2.text_input("Middle Name").title()
+        surname = c3.text_input("Surname").title()
+        
+        c4, c5, c6 = st.columns([2, 1, 2])
+        dob = c4.date_input("Date of Birth", min_value=datetime.date(1930, 1, 1), max_value=datetime.date(2008, 1, 1), value=datetime.date(2000, 1, 1))
+        age = c5.number_input("Age", min_value=18, max_value=99, step=1)
+        contact = c6.text_input("Contact Number")
+        
+        address = st.text_area("Full Address")
+        
+        st.write("*Account Details*")
+        username = st.text_input("Choose a Username").lower()
+        c7, c8 = st.columns(2)
+        password = c7.text_input("Create a Password", type="password")
+        confirm_password = c8.text_input("Confirm Password", type="password")
+        
+        st.write("*Identity Verification (2 IDs Required)*")
+        c9, c10 = st.columns(2)
+        gov_id = c9.file_uploader("Upload Valid Govt ID", type=['jpg', 'png'])
+        lic_id = c10.file_uploader("Upload Driver's License", type=['jpg', 'png']) # --- NEW DRIVER LICENSE ---
+        
+        st.divider()
+        agreed = st.checkbox("✅ I have read, understood, and agree to the Affiliate Policies & 15% Platform Fee rules in the sidebar.")
+        
+        if st.form_submit_button("Submit Partner Registration", type="primary"):
+            full_name = f"{first_name} {middle_name} {surname}".replace("  ", " ").strip()
+            
+            if not agreed: st.error("🚨 Registration Blocked: You must agree to the terms in the sidebar.")
+            elif password != confirm_password: st.error("🚨 Passwords do not match. Please try again.")
+            elif first_name and surname and username and password and gov_id and lic_id:
+                try:
+                    conn.execute("INSERT INTO users (username, password, role, full_name, age, contact_number, address, id_img, license_img, admin_status) VALUES (?, ?, 'AFFILIATE', ?, ?, ?, ?, ?, ?, 'PENDING')", (username, password, full_name, age, contact, address, save_file(gov_id), save_file(lic_id)))
+                    conn.commit()
+                    st.success("🎉 Partner Registration Successful! Pending Admin approval.")
+                except: st.error("Username taken. Please choose another.")
+            else: st.error("⚠️ Please fill out all required fields and upload BOTH IDs.")
+
+elif reg_type == "Renter":
+    with st.sidebar:
+        st.header("📝 Renter Policies")
+        st.markdown("""
+        *1. Fuel Policy:* Return with same fuel level. Missing fuel incurs a refill cost + ₱500 fee.
+        *2. Cleanliness:* Return clean. Excessive dirt incurs up to ₱1,500 fee.
+        *3. Damage:* You are fully responsible for damages incurred during booking.
+        *4. Late Returns:* 30-min grace period. Then strict ₱500/hour late fee.
+        *5. Permitted Use:* Personal transport only. No racing/towing.
+        """)
+        st.info("You must agree to these terms to register.")
+
+    st.subheader("🚙 Renter Registration")
+    with st.form("renter_reg_form"):
+        st.write("*Personal Information*")
+        c1, c2, c3 = st.columns(3)
+        first_name = c1.text_input("First Name").title()
+        middle_name = c2.text_input("Middle Name").title()
+        surname = c3.text_input("Surname").title()
+        
+        c4, c5, c6 = st.columns([2, 1, 2])
+        dob = c4.date_input("Date of Birth", min_value=datetime.date(1930, 1, 1), max_value=datetime.date(2008, 1, 1), value=datetime.date(2000, 1, 1))
+        age = c5.number_input("Age", min_value=18, max_value=99, step=1)
+        contact = c6.text_input("Contact Number")
+        
+        address = st.text_area("Full Address")
+        
+        st.write("*Account Details*")
+        username = st.text_input("Choose a Username").lower()
+        c7, c8 = st.columns(2)
+        password = c7.text_input("Create a Password", type="password")
+        confirm_password = c8.text_input("Confirm Password", type="password")
+        
+        st.write("*Identity Verification (2 IDs Required)*")
+        c9, c10 = st.columns(2)
+        gov_id = c9.file_uploader("Upload Govt ID", type=['jpg', 'png'])
+        lic_id = c10.file_uploader("Upload Driver's License", type=['jpg', 'png'])
+        
+        st.divider()
+        agreed = st.checkbox("✅ I have read, understood, and agree to the DriveElite Renter Policies shown in the sidebar.")
+        
+        if st.form_submit_button("Submit Registration", type="primary"):
+            full_name = f"{first_name} {middle_name} {surname}".replace("  ", " ").strip()
+            
+            if not agreed: st.error("🚨 Registration Blocked: You must agree to the terms in the sidebar.")
+            elif password != confirm_password: st.error("🚨 Passwords do not match. Please try again.")
+            elif first_name and surname and username and password and gov_id and lic_id:
+                try:
+                    conn.execute("INSERT INTO users (username, password, role, full_name, age, contact_number, address, id_img, license_img, admin_status) VALUES (?, ?, 'RENTER', ?, ?, ?, ?, ?, ?, 'PENDING')", (username, password, full_name, age, contact, address, save_file(gov_id), save_file(lic_id)))
+                    conn.commit()
+                    st.success("🎉 Registration Successful! Pending Admin approval.")
+                except: st.error("Username taken. Please choose another.")
+            else: st.error("⚠️ Please fill out all required fields and upload BOTH IDs.")
