@@ -34,6 +34,13 @@ def get_connection():
     # 6. Reviews Table
     conn.execute('''CREATE TABLE IF NOT EXISTS reviews
                     (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER, vehicle_id INTEGER, renter_username TEXT, rating INTEGER, review_text TEXT)''')
+                    
+    # 7. NEW: Support Chats Table for Messenger
+    conn.execute('''CREATE TABLE IF NOT EXISTS support_chats
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, receiver TEXT, message TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    
+    conn.commit()
+    return conn
     
     conn.commit()
     return conn
