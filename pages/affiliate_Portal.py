@@ -68,20 +68,41 @@ with tabs[0]:
             
             st.divider()
             c1, c2 = st.columns(2)
+            
+            # --- PERFECTLY CENTERED RENTER SIGNATURE ---
             with c1:
-                st.write("*Renter Signature*")
-                # FIXED: Added strict width=300 so it fits in the column!
-                s_r = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=300, key=f"sr_{t['id']}")
+                st.markdown("<div style='text-align: center;'><b>Renter Signature</b></div>", unsafe_allow_html=True)
+                if f"clr_sr_{t['id']}" not in st.session_state: st.session_state[f"clr_sr_{t['id']}"] = 0
+                
+                # These columns push the canvas to the exact center
+                _, mid1, _ = st.columns([1, 4, 1])
+                with mid1:
+                    s_r = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=250, display_toolbar=False, key=f"sr_{t['id']}_{st.session_state[f'clr_sr_{t['id']}']}")
+                    if st.button("🧹 Clear / Erase", key=f"btn_sr_{t['id']}", use_container_width=True):
+                        st.session_state[f"clr_sr_{t['id']}"] += 1
+                        st.rerun()
+
+            # --- PERFECTLY CENTERED AFFILIATE SIGNATURE ---
             with c2:
-                st.write("*Affiliate Signature*")
-                # FIXED: Added strict width=300 so it fits in the column!
-                s_a = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=300, key=f"sa_{t['id']}")
+                st.markdown("<div style='text-align: center;'><b>Affiliate Signature</b></div>", unsafe_allow_html=True)
+                if f"clr_sa_{t['id']}" not in st.session_state: st.session_state[f"clr_sa_{t['id']}"] = 0
+                
+                _, mid2, _ = st.columns([1, 4, 1])
+                with mid2:
+                    s_a = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=250, display_toolbar=False, key=f"sa_{t['id']}_{st.session_state[f'clr_sa_{t['id']}']}")
+                    if st.button("🧹 Clear / Erase", key=f"btn_sa_{t['id']}", use_container_width=True):
+                        st.session_state[f"clr_sa_{t['id']}"] += 1
+                        st.rerun()
             
             if st.button("EXECUTE CONTRACT & DISPATCH", key=f"ex_{t['id']}", type="primary", use_container_width=True):
+                # Ensure something was actually drawn
+                has_sr = s_r.json_data is not None and len(s_r.json_data.get("objects", [])) > 0
+                has_sa = s_a.json_data is not None and len(s_a.json_data.get("objects", [])) > 0
+                
                 if not (chk_tank and chk_ac and chk_wiper and chk_exterior and chk_seats and chk_deposit):
                     st.error("You must check off all items on the Pre-Handover Checklist before dispatching.")
-                elif not (s_r.json_data and s_a.json_data):
-                    st.error("Both Renter and Affiliate signatures are required.")
+                elif not (has_sr and has_sa):
+                    st.error("Both Renter and Affiliate signatures are required to execute the contract.")
                 else:
                     conn.execute("UPDATE bookings SET status = 'ONGOING' WHERE id = ?", (t['id'],))
                     conn.commit(); st.success("SUCCESS: Dispatched!"); time.sleep(1); st.rerun()
@@ -130,13 +151,22 @@ with tabs[0]:
                 else:
                     st.info(f"💰 *Deposit to Refund:* ₱{refund_amount:,.2f}")
 
+            # --- PERFECTLY CENTERED RETURN SIGNATURE ---
             with c2:
-                st.write("*Renter Final Sign-off*")
-                # FIXED: Added strict width=300
-                s_ret = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=300, key=f"sret_{t['id']}")
+                st.markdown("<div style='text-align: center;'><b>Renter Final Sign-off</b></div>", unsafe_allow_html=True)
+                if f"clr_sret_{t['id']}" not in st.session_state: st.session_state[f"clr_sret_{t['id']}"] = 0
+                
+                _, mid_ret, _ = st.columns([1, 4, 1])
+                with mid_ret:
+                    s_ret = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=250, display_toolbar=False, key=f"sret_{t['id']}_{st.session_state[f'clr_sret_{t['id']}']}")
+                    if st.button("🧹 Clear / Erase", key=f"btn_sret_{t['id']}", use_container_width=True):
+                        st.session_state[f"clr_sret_{t['id']}"] += 1
+                        st.rerun()
             
             if st.button("SETTLE & COMPLETE JOURNEY", key=f"comp_{t['id']}", type="primary", use_container_width=True):
-                if s_ret.json_data:
+                has_sret = s_ret.json_data is not None and len(s_ret.json_data.get("objects", [])) > 0
+                
+                if has_sret:
                     conn.execute("UPDATE bookings SET amount = amount - ?, status = 'COMPLETED' WHERE id = ?", (refund_amount, t['id']))
                     conn.execute("UPDATE vehicles SET booking_status = 'AVAILABLE' WHERE id = ?", (t['vehicle_id'],))
                     conn.commit()

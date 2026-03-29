@@ -1,13 +1,19 @@
 import sqlite3
 
 def get_connection():
-    # Connect to the SQLite database (this creates the file if it doesn't exist)
+    # Connect to the SQLite database
     conn = sqlite3.connect('driveelite.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     
-    # 1. Users Table (Renters, Affiliates, Admins)
+    # 1. Users Table
     conn.execute('''CREATE TABLE IF NOT EXISTS users
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, full_name TEXT, age INTEGER, contact_number TEXT, address TEXT, id_img TEXT, license_img TEXT, admin_status TEXT)''')
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, full_name TEXT, age INTEGER, contact_number TEXT, address TEXT, nationality TEXT, id_img TEXT, license_img TEXT, admin_status TEXT)''')
+    
+    # Safely upgrade existing database with the new Nationality column
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN nationality TEXT DEFAULT 'Filipino'")
+        conn.commit()
+    except: pass
                     
     # 2. Vehicles Table
     conn.execute('''CREATE TABLE IF NOT EXISTS vehicles
@@ -17,19 +23,17 @@ def get_connection():
     conn.execute('''CREATE TABLE IF NOT EXISTS bookings
                     (id INTEGER PRIMARY KEY AUTOINCREMENT, vehicle_id INTEGER, renter_username TEXT, amount REAL, pickup_loc TEXT, return_loc TEXT, destination TEXT, pickup_time TEXT, return_time TEXT, drive_type TEXT, payment_method TEXT, status TEXT, payout_status TEXT DEFAULT 'PENDING')''')
 
-    # 4. Drivers Table (For Affiliates registering drivers)
+    # 4. Drivers Table
     conn.execute('''CREATE TABLE IF NOT EXISTS drivers
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_username TEXT, first_name TEXT, middle_name TEXT, last_name TEXT, birthdate TEXT, age INTEGER, address TEXT, contact_number TEXT, is_owner INTEGER, license_img TEXT, govt_id_img TEXT, admin_status TEXT DEFAULT 'PENDING')''')
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_username TEXT, first_name TEXT, middle_name TEXT, last_name TEXT, age INTEGER, address TEXT, contact_number TEXT, is_owner INTEGER, license_img TEXT, govt_id_img TEXT, admin_status TEXT DEFAULT 'PENDING')''')
 
-    # 5. Vehicle Categories Table (For dynamic pricing)
+    # 5. Vehicle Categories Table
     conn.execute('''CREATE TABLE IF NOT EXISTS vehicle_categories 
                     (name TEXT PRIMARY KEY, default_price REAL)''')
 
-    # 6. Reviews Table (THIS IS THE ONE THAT WAS MISSING!)
+    # 6. Reviews Table
     conn.execute('''CREATE TABLE IF NOT EXISTS reviews
                     (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER, vehicle_id INTEGER, renter_username TEXT, rating INTEGER, review_text TEXT)''')
     
     conn.commit()
     return conn
-if __name__ == "__main__":
-    init_db()

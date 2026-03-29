@@ -10,7 +10,7 @@ conn = get_connection()
 try:
     conn.execute("CREATE TABLE IF NOT EXISTS vehicle_categories (name TEXT PRIMARY KEY, default_price REAL)")
     if pd.read_sql_query("SELECT COUNT(*) as cnt FROM vehicle_categories", conn).iloc[0]['cnt'] == 0:
-        conn.executemany("INSERT INTO vehicle_categories (name, default_price) VALUES (?, ?)", [("Sedan", 1500), ("SUV", 3500), ("Van", 5000)])
+        conn.executemany("INSERT INTO vehicle_categories (name, default_price) VALUES (?, ?)", [("Sedan", 1500), ("SUV", 4500), ("Van", 5000)])
         conn.commit()
 except: pass
 
@@ -40,8 +40,9 @@ with tabs[0]:
         renters = pd.read_sql_query("SELECT * FROM users WHERE admin_status = 'PENDING' AND role = 'RENTER'", conn)
         for i, r in renters.iterrows():
             with st.expander(f"{r['full_name']} (@{r['username']})"):
-                st.write(f"*Age:* {r['age']} | *Contact:* {r['contact_number']}")
-                if r.get('id_img'): st.image(r['id_img'], caption="Govt ID")
+                # ADDED NATIONALITY DISPLAY HERE
+                st.write(f"*Age:* {r['age']} | *Nationality:* {r.get('nationality', 'Filipino')} | *Contact:* {r['contact_number']}")
+                if r.get('id_img'): st.image(r['id_img'], caption="Passport / Govt ID")
                 if r.get('license_img'): st.image(r['license_img'], caption="Driver's License")
                 c_b1, c_b2 = st.columns(2)
                 if c_b1.button("APPROVE", key=f"ra_{r['id']}", type="primary", use_container_width=True):
@@ -52,8 +53,9 @@ with tabs[0]:
         affiliates = pd.read_sql_query("SELECT * FROM users WHERE admin_status = 'PENDING' AND role = 'AFFILIATE'", conn)
         for i, r in affiliates.iterrows():
             with st.expander(f"{r['full_name']} (@{r['username']})"):
-                st.write(f"*Age:* {r['age']} | *Contact:* {r['contact_number']}")
-                if r.get('id_img'): st.image(r['id_img'], caption="Govt ID")
+                # ADDED NATIONALITY DISPLAY HERE
+                st.write(f"*Age:* {r['age']} | *Nationality:* {r.get('nationality', 'Filipino')} | *Contact:* {r['contact_number']}")
+                if r.get('id_img'): st.image(r['id_img'], caption="Passport / Govt ID")
                 if r.get('license_img'): st.image(r['license_img'], caption="Driver's License") 
                 c_b1, c_b2 = st.columns(2)
                 if c_b1.button("APPROVE", key=f"aa_{r['id']}", type="primary", use_container_width=True):
@@ -156,7 +158,6 @@ with tabs[4]:
     try:
         db_tabs = st.tabs(["🚙 RENTERS", "💼 AFFILIATES"])
         
-        # --- FIXED: Now matching your exact sketch layout ---
         q_renters = "SELECT full_name as 'FULLNAME', address as 'ADDRESS', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM users WHERE role = 'RENTER'"
         with db_tabs[0]: 
             st.dataframe(pd.read_sql_query(q_renters, conn), hide_index=True, use_container_width=True)
