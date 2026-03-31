@@ -1,168 +1,210 @@
 import streamlit as st
 import pandas as pd
-import time
 from database_utils import get_connection
 
 st.set_page_config(page_title="DriveElite Admin", layout="wide")
-st.markdown("""<style>.stApp { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }</style>""", unsafe_allow_html=True)
-
 conn = get_connection()
-try:
-    conn.execute("CREATE TABLE IF NOT EXISTS vehicle_categories (name TEXT PRIMARY KEY, default_price REAL)")
-    if pd.read_sql_query("SELECT COUNT(*) as cnt FROM vehicle_categories", conn).iloc[0]['cnt'] == 0:
-        conn.executemany("INSERT INTO vehicle_categories (name, default_price) VALUES (?, ?)", [("Sedan", 1500), ("SUV", 4500), ("Van", 5000)])
-        conn.commit()
-except: pass
 
+# Auth Check
 if not st.session_state.get('logged_in') or st.session_state.get('role') != 'ADMIN':
     st.title("ADMIN LOGIN")
     with st.form("login"):
-        u = st.text_input("Master Username")
-        p = st.text_input("Master Password", type="password")
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
         if st.form_submit_button("AUTHORIZE"):
             if u == "masterom" and p == "qZ822118qq":
                 st.session_state.logged_in, st.session_state.username, st.session_state.role = True, "masterom", "ADMIN"
                 st.rerun()
-    st.stop() 
+    st.stop()
 
-c1, c2 = st.columns([4, 1])
-with c1: st.title("🛡️ MASTER COMMAND CENTER")
-with c2:
-    if st.button("🔒 LOGOUT", use_container_width=True, type="primary"):
-        st.session_state.clear(); st.rerun()
+st.title("🛡️ MASTER COMMAND CENTER")
 
-tabs = st.tabs(["PENDING USERS", "ASSET APPROVALS", "LOGISTICS DISPATCH", "FINANCIALS & PAYOUTS", "MASTER DB"])
+with st.sidebar:
+    st.markdown("### 👨‍💼 Admin Controls")
+    st.info(f"Logged in as: {st.session_state.username}")
+    if st.button("🔒 LOGOUT", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+# DEFINING 6 TABS (Renamed first tab to PENDING APPROVALS)
+tabs = st.tabs(["PENDING APPROVALS", "ASSETS", "LOGISTICS", "FINANCIALS", "🗄️ FILING CABINET", "PROMOS & DB"])
 
 with tabs[0]:
-    c_rent, c_aff = st.columns(2)
-    with c_rent:
-        st.markdown("<h3 style='text-align: center;'>🚙 PENDING RENTERS</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>📋 PENDING APPROVALS</h3>", unsafe_allow_html=True)
+    
+    # NEW: 3 Sub-tabs for better organization!
+    p_tabs = st.tabs(["🚙 PENDING RENTERS", "💼 PENDING AFFILIATES", "👨‍✈️ PENDING DRIVERS"])
+    
+    with p_tabs[0]:
         renters = pd.read_sql_query("SELECT * FROM users WHERE admin_status = 'PENDING' AND role = 'RENTER'", conn)
+        if renters.empty: st.info("No pending renters.")
         for i, r in renters.iterrows():
             with st.expander(f"{r['full_name']} (@{r['username']})"):
-                # ADDED NATIONALITY DISPLAY HERE
-                st.write(f"*Age:* {r['age']} | *Nationality:* {r.get('nationality', 'Filipino')} | *Contact:* {r['contact_number']}")
-                if r.get('id_img'): st.image(r['id_img'], caption="Passport / Govt ID")
-                if r.get('license_img'): st.image(r['license_img'], caption="Driver's License")
-                c_b1, c_b2 = st.columns(2)
-                if c_b1.button("APPROVE", key=f"ra_{r['id']}", type="primary", use_container_width=True):
+                st.write(f"*Age:* {r['age']} | *Nat:* {r.get('nationality', 'Filipino')} | *Contact:* {r['contact_number']}")
+                c_img1, c_img2 = st.columns(2)
+                if r.get('id_img'): c_img1.image(r['id_img'], caption="Passport / Govt ID")
+                if r.get('license_img'): c_img2.image(r['license_img'], caption="Driver's License")
+                if st.button("APPROVE RENTER", key=f"ra_{r['id']}", type="primary", use_container_width=True):
                     conn.execute("UPDATE users SET admin_status = 'APPROVED' WHERE id = ?", (r['id'],)); conn.commit(); st.rerun()
 
-    with c_aff:
-        st.markdown("<h3 style='text-align: center;'>💼 PENDING AFFILIATES</h3>", unsafe_allow_html=True)
+    with p_tabs[1]:
         affiliates = pd.read_sql_query("SELECT * FROM users WHERE admin_status = 'PENDING' AND role = 'AFFILIATE'", conn)
+        if affiliates.empty: st.info("No pending affiliates.")
         for i, r in affiliates.iterrows():
             with st.expander(f"{r['full_name']} (@{r['username']})"):
-                # ADDED NATIONALITY DISPLAY HERE
-                st.write(f"*Age:* {r['age']} | *Nationality:* {r.get('nationality', 'Filipino')} | *Contact:* {r['contact_number']}")
-                if r.get('id_img'): st.image(r['id_img'], caption="Passport / Govt ID")
-                if r.get('license_img'): st.image(r['license_img'], caption="Driver's License") 
-                c_b1, c_b2 = st.columns(2)
-                if c_b1.button("APPROVE", key=f"aa_{r['id']}", type="primary", use_container_width=True):
+                st.write(f"*Age:* {r['age']} | *Nat:* {r.get('nationality', 'Filipino')} | *Contact:* {r['contact_number']}")
+                c_img1, c_img2 = st.columns(2)
+                if r.get('id_img'): c_img1.image(r['id_img'], caption="Passport / Govt ID")
+                if r.get('license_img'): c_img2.image(r['license_img'], caption="Driver's License") 
+                if st.button("APPROVE AFFILIATE", key=f"aa_{r['id']}", type="primary", use_container_width=True):
                     conn.execute("UPDATE users SET admin_status = 'APPROVED' WHERE id = ?", (r['id'],)); conn.commit(); st.rerun()
 
+    # --- NEW: ADMIN CAN NOW APPROVE DRIVERS ---
+    with p_tabs[2]:
+        drivers = pd.read_sql_query("SELECT * FROM drivers WHERE admin_status = 'PENDING'", conn)
+        if drivers.empty: st.info("No pending drivers.")
+        for i, d in drivers.iterrows():
+            with st.expander(f"{d['first_name']} {d['last_name']} (Affiliate: @{d['owner_username']})"):
+                st.write(f"*Age:* {d['age']} | *Contact:* {d['contact_number']} | *Address:* {d['address']}")
+                if d['is_owner']: st.info("ℹ️ This driver is also the registered Affiliate Owner.")
+                
+                c_img1, c_img2 = st.columns(2)
+                if d.get('govt_id_img'): c_img1.image(d['govt_id_img'], caption="Govt ID")
+                if d.get('license_img'): c_img2.image(d['license_img'], caption="Professional License")
+                
+                if st.button("APPROVE DRIVER", key=f"da_{d['id']}", type="primary", use_container_width=True):
+                    conn.execute("UPDATE drivers SET admin_status = 'APPROVED' WHERE id = ?", (d['id'],)); conn.commit(); st.rerun()
+
 with tabs[1]:
-    st.markdown("<h3 style='text-align: center;'>PENDING VEHICLES</h3>", unsafe_allow_html=True)
+    st.subheader("Vehicle Approvals")
     pv = pd.read_sql_query("SELECT * FROM vehicles WHERE admin_status = 'PENDING'", conn)
     for i, r in pv.iterrows():
-        with st.expander(f"{r['make']} {r['model']} ({r['plate']}) - Owner: @{r['owner_username']}"):
-            st.write(f"*Payout Bank:* {r.get('bank_name', 'N/A')} | *Account:* {r.get('account_no', 'N/A')}")
-            col_img1, col_img2 = st.columns(2)
+        with st.expander(f"{r['make']} {r['model']} ({r['plate']})"):
+            col_img1, col_img2, col_img3 = st.columns(3)
             if r.get('vehicle_img'): col_img1.image(r['vehicle_img'], caption="Vehicle Photo")
             if r.get('or_cr_img'): col_img2.image(r['or_cr_img'], caption="OR/CR")
-            if st.button("APPROVE VEHICLE", key=f"va_{r['id']}", type="primary", use_container_width=True):
+            if r.get('insurance_img'): col_img3.image(r['insurance_img'], caption="Insurance")
+            if st.button("APPROVE ASSET", key=f"v_{r['id']}", type="primary"):
                 conn.execute("UPDATE vehicles SET admin_status = 'APPROVED' WHERE id = ?", (r['id'],)); conn.commit(); st.rerun()
 
 with tabs[2]:
-    st.markdown("<h3 style='text-align: center;'>LOGISTICS DISPATCH & ACTIVE TRIPS</h3>", unsafe_allow_html=True)
+    st.subheader("Active Logistics")
     try:
         bookings = pd.read_sql_query("SELECT b.*, u.full_name as renter_name FROM bookings b JOIN users u ON b.renter_username = u.username WHERE b.status != 'COMPLETED'", conn)
         for i, r in bookings.iterrows():
             with st.expander(f"Ref #DRV-{r['id']:05d} | STATUS: {r['status']} | RENTER: {r['renter_name']}"):
+                if r.get('with_driver', 0) == 1: st.markdown("👨‍✈️ *[TRIP INCLUDES PROFESSIONAL DRIVER]*")
                 st.write(f"*Amount Paid:* ₱{r['amount']:,.2f} | *Dest:* {r.get('destination', 'N/A')}")
     except: pass
 
 with tabs[3]:
-    st.markdown("<h3 style='text-align: center;'>💰 PLATFORM FINANCIALS & PAYOUTS</h3>", unsafe_allow_html=True)
-    try:
-        st.write("#### 💸 PENDING AFFILIATE PAYOUTS")
-        q_pending = """
-        SELECT b.id, u.full_name, v.bank_name, v.account_no, (b.amount * 0.85) as payout
-        FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users u ON v.owner_username = u.username
-        WHERE b.status = 'COMPLETED' AND b.payout_status = 'PENDING'
-        """
-        pending_payouts = pd.read_sql_query(q_pending, conn)
-        if not pending_payouts.empty:
+    st.header("💰 Financial Ledger")
+    c_in, c_out = st.columns(2)
+    with c_in:
+        st.subheader("📥 INCOMING: Verify Renters")
+        try:
+            q_in = "SELECT b.id, b.amount, b.payment_method, u.full_name FROM bookings b JOIN users u ON b.renter_username = u.username WHERE b.status IN ('CONFIRMED', 'ONGOING') ORDER BY b.id DESC"
+            incoming = pd.read_sql_query(q_in, conn)
+            if incoming.empty: st.info("No recent incoming payments to verify.")
+            for _, r in incoming.iterrows():
+                with st.container(border=True):
+                    st.write(f"*DRV-{r['id']:05d}* | {r['full_name']} | ₱{r['amount']:,.2f}")
+                    st.success(f"*{r.get('payment_method', 'No Reference')}*")
+        except: pass
+
+    with c_out:
+        st.subheader("📤 OUTGOING: Pay Affiliates")
+        try:
+            q_pending = "SELECT b.id, u.full_name, v.bank_name, v.account_no, (b.amount * 0.85) as payout FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users u ON v.owner_username = u.username WHERE b.status = 'COMPLETED' AND b.payout_status = 'PENDING'"
+            pending_payouts = pd.read_sql_query(q_pending, conn)
+            if pending_payouts.empty: st.info("No pending affiliate payouts.")
             for _, p in pending_payouts.iterrows():
-                with st.expander(f"Booking #{p['id']:05d} | {p['full_name']} | ₱{p['payout']:,.2f}"):
-                    st.write(f"*Transfer To:* {p['bank_name']}")
-                    st.write(f"*Account No:* {p['account_no']}")
-                    if st.button("✅ MARK AS PAID", key=f"pay_{p['id']}", type="primary"):
-                        conn.execute("UPDATE bookings SET payout_status = 'PAID' WHERE id = ?", (p['id'],))
-                        conn.commit(); st.rerun()
-        else:
-            st.info("No pending payouts. All affiliates are paid up!")
+                with st.expander(f"DRV-{p['id']:05d} | {p['full_name']} | ₱{p['payout']:,.2f}"):
+                    st.write(f"*Send To:* {p['bank_name']} | *Account:* {p['account_no']}")
+                    if st.button("MARK AS PAID", key=f"pay_{p['id']}", type="primary", use_container_width=True):
+                        conn.execute("UPDATE bookings SET payout_status = 'PAID' WHERE id = ?", (p['id'],)); conn.commit(); st.rerun()
+        except: pass
 
-        st.divider()
+with tabs[4]: 
+    st.header("🗄️ Master Digital Filing Cabinet")
+    search_id = st.number_input("Enter Booking ID", min_value=1, step=1)
+    if st.button("PULL FULL CASE FILE"):
+        q = "SELECT b.*, v.make, v.model, r.full_name as rname FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users r ON b.renter_username = r.username WHERE b.id = ?"
+        rec = pd.read_sql_query(q, conn, params=(search_id,))
+        if not rec.empty:
+            r = rec.iloc[0]
+            st.success(f"Record Found: DRV-{r['id']:05d}")
+            st.write("### 📸 10-Point Pre-Dispatch Inspection")
+            
+            c1, c2, c3, c4 = st.columns(4)
+            if r['actual_dl_img']: c1.image(r['actual_dl_img'], caption="1. Driver's License")
+            if r['front_img']: c2.image(r['front_img'], caption="2. Front Exterior")
+            if r['back_img']: c3.image(r['back_img'], caption="3. Back Exterior")
+            if r['left_img']: c4.image(r['left_img'], caption="4. Left Exterior")
+            
+            c5, c6, c7, c8 = st.columns(4)
+            if r['right_img']: c5.image(r['right_img'], caption="5. Right Exterior")
+            if r['odometer_img']: c6.image(r['odometer_img'], caption="6. Odometer/Dash")
+            if r['dseat_img']: c7.image(r['dseat_img'], caption="7. Driver Seat")
+            if r['pseat_img']: c8.image(r['pseat_img'], caption="8. Passenger Seat")
+            
+            c9, c10, c11, c12 = st.columns(4)
+            if r['trunk_img']: c9.image(r['trunk_img'], caption="9. Inside Trunk")
+            if r['tire_img']: c10.image(r['tire_img'], caption="10. Spare Tire")
+            
+            if r['damage_img']:
+                st.divider()
+                st.error("⚠️ DAMAGE REPORTED ON RETURN")
+                st.image(r['damage_img'], caption="Proof of Damage", width=400)
+        else: st.error("No record found.")
 
-        st.write("#### 📊 MASTER FINANCIAL LEDGER")
-        q_ledger = """
-        SELECT b.id as 'Booking No', u.full_name as 'Full Name', b.amount as 'Gross Total', 
-        (b.amount * 0.15) as 'Admin Fee', (b.amount * 0.85) as 'Affiliate Payout', b.payout_status as 'Status' 
-        FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users u ON v.owner_username = u.username 
-        WHERE b.status = 'COMPLETED'
-        """
-        df_fin = pd.read_sql_query(q_ledger, conn)
-        
-        if not df_fin.empty:
-            total_admin = df_fin['Admin Fee'].sum()
-            
-            for col in ['Gross Total', 'Admin Fee', 'Affiliate Payout']:
-                df_fin[col] = df_fin[col].apply(lambda x: f"₱{x:,.2f}")
-            
-            styled_df = df_fin.style.set_properties(
-                subset=['Booking No', 'Full Name', 'Status'], 
-                **{'font-weight': 'normal', 'text-align': 'center'}
-            ).set_properties(
-                subset=['Gross Total', 'Admin Fee', 'Affiliate Payout'], 
-                **{'font-weight': 'normal', 'text-align': 'right'}
-            ).set_table_styles([
-                dict(selector='th', props=[('text-align', 'center'), ('font-weight', 'bold')])
-            ])
-            
-            st.dataframe(styled_df, hide_index=True, use_container_width=True)
-            st.write(f"*Total Admin Revenue:* ₱{total_admin:,.2f}")
-    except Exception as e: pass
-
-with tabs[4]:
-    st.markdown("<h3 style='text-align: center;'>📈 CATEGORY MANAGER</h3>", unsafe_allow_html=True)
-    with st.form("add_cat", clear_on_submit=True):
-        n = st.text_input("New Category")
-        p = st.number_input("Daily Rate", min_value=500.0)
-        
-        if st.form_submit_button("ADD CATEGORY"):
-            if n:
-                try:
-                    conn.execute("INSERT INTO vehicle_categories (name, default_price) VALUES (?, ?)", (n.title(), p))
-                    conn.commit()
-                    st.success(f"✅ Successfully added '{n.title()}'!")
-                    time.sleep(1)
-                    st.rerun()
-                except:
-                    st.error(f"⚠️ The category '{n.title()}' already exists! Please enter a unique category name.")
-            else:
-                st.error("Please enter a category name.")
+with tabs[5]:
+    col_promo, col_cat = st.columns(2)
+    with col_promo:
+        st.subheader("📢 Promo Manager")
+        with st.form("promo"):
+            t = st.text_input("Promo Title")
+            m = st.text_area("Promo Message")
+            if st.form_submit_button("PUBLISH TO RENTERS"):
+                if t and m:
+                    conn.execute("UPDATE admin_promos SET active = 0")
+                    conn.execute("INSERT INTO admin_promos (title, message) VALUES (?,?)", (t, m)); conn.commit(); st.success("Live!")
+    with col_cat:
+        st.subheader("📈 Category Manager")
+        with st.form("add_cat", clear_on_submit=True):
+            n = st.text_input("New Category (e.g., Pickup, Luxury)")
+            p = st.number_input("Daily Rate (₱)", min_value=500.0, step=100.0, value=2500.0)
+            if st.form_submit_button("ADD NEW CATEGORY"):
+                if n:
+                    try:
+                        conn.execute("INSERT INTO vehicle_categories (name, default_price) VALUES (?, ?)", (n.title(), p)); conn.commit()
+                    except: pass
     
     st.divider()
+    st.write("🔍 *Quick Profile Viewer (Lookup IDs)*")
+    all_users = pd.read_sql_query("SELECT username, full_name, role, id_img, license_img FROM users WHERE admin_status = 'APPROVED'", conn)
+    if not all_users.empty:
+        user_list = ["-- Select a User --"] + all_users['full_name'].tolist()
+        selected_user = st.selectbox("Search for an Approved User to view their documents:", user_list)
+        if selected_user != "-- Select a User --":
+            u_data = all_users[all_users['full_name'] == selected_user].iloc[0]
+            c_id1, c_id2 = st.columns(2)
+            with c_id1:
+                if u_data['id_img']: st.image(u_data['id_img'], caption="GOVT ID")
+            with c_id2:
+                if u_data['license_img']: st.image(u_data['license_img'], caption="DRIVER'S LICENSE")
+    st.divider()
+    
     st.markdown("<h3 style='text-align: center;'>ALL REGISTERED USERS</h3>", unsafe_allow_html=True)
     try:
-        db_tabs = st.tabs(["🚙 RENTERS", "💼 AFFILIATES"])
-        
+        # NEW: Added Drivers to the Master Database viewer
+        db_tabs = st.tabs(["🚙 RENTERS", "💼 AFFILIATES", "👨‍✈️ DRIVERS"])
         q_renters = "SELECT full_name as 'FULLNAME', address as 'ADDRESS', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM users WHERE role = 'RENTER'"
-        with db_tabs[0]: 
-            st.dataframe(pd.read_sql_query(q_renters, conn), hide_index=True, use_container_width=True)
-            
+        with db_tabs[0]: st.dataframe(pd.read_sql_query(q_renters, conn), hide_index=True, use_container_width=True)
+        
         q_affiliates = "SELECT full_name as 'FULLNAME', address as 'ADDRESS', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM users WHERE role = 'AFFILIATE'"
-        with db_tabs[1]: 
-            st.dataframe(pd.read_sql_query(q_affiliates, conn), hide_index=True, use_container_width=True)
+        with db_tabs[1]: st.dataframe(pd.read_sql_query(q_affiliates, conn), hide_index=True, use_container_width=True)
+        
+        q_drivers = "SELECT first_name || ' ' || last_name as 'FULLNAME', owner_username as 'BELONGS TO AFFILIATE', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM drivers"
+        with db_tabs[2]: st.dataframe(pd.read_sql_query(q_drivers, conn), hide_index=True, use_container_width=True)
     except: pass
