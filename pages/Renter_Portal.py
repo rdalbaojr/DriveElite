@@ -1,163 +1,194 @@
-
 import streamlit as st
 import pandas as pd
 import datetime
 import time
-import os
-import base64
 from database_utils import get_connection
 
-st.set_page_config(page_title="DriveElite Renter", layout="wide")
+st.set_page_config(page_title="DriveElite Showroom", layout="wide")
+
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
-    [data-testid='stSidebarNav'] span { text-transform: uppercase !important; font-weight: bold !important; }
-    .bill-box { background-color: #ffffff; padding: 15px; border-radius: 10px; border: 1px solid #ddd; }
+    .promo-banner { background: linear-gradient(90deg, #ff4b4b, #ff8f8f); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 25px; }
+    .bill-box { background-color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #e0e0e0; margin-top: 10px; }
+    .savings-badge { background-color: #d4edda; color: #155724; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
 conn = get_connection()
 
-def create_pdf_download(data):
-    receipt_text = f"--- DRIVEELITE RECEIPT ---\nRef: {data['ref']}\nDate: {datetime.date.today()}\nRenter: {data['user']}\nVehicle: {data['vehicle']}\nGross Rental: PHP {data['gross']:,.2f}\nSecurity Deposit: PHP {data['deposit']:,.2f}\n---\nTOTAL PAID: PHP {data['net']:,.2f}\nStatus: PAID"
-    b64 = base64.b64encode(receipt_text.encode()).decode()
-    return f'<a href="data:file/txt;base64,{b64}" download="Receipt_{data["ref"]}.txt">📥 Download Official Receipt</a>'
-
-# --- RENTER LOGIN ---
 if not st.session_state.get('logged_in') or st.session_state.get('role') != 'RENTER':
-    st.title("🚙 RENTER LOGIN")
-    with st.form("login"):
+    st.markdown("<h2 style='text-align: center;'>🚙 RENTER ACCESS</h2>", unsafe_allow_html=True)
+    with st.form("login_renter"):
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
-        if st.form_submit_button("LOGIN"):
+        if st.form_submit_button("LOGIN TO SHOWROOM", use_container_width=True):
             user = pd.read_sql_query("SELECT * FROM users WHERE username=? AND password=? AND role='RENTER'", conn, params=(u, p))
             if not user.empty:
-                if user.iloc[0]['admin_status'] == 'PENDING': st.warning("⏳ Account pending Admin approval.")
-                elif user.iloc[0]['admin_status'] == 'REJECTED': st.error("🚫 Account application rejected.")
-                else:
+                if user.iloc[0]['admin_status'] == 'APPROVED':
                     st.session_state.logged_in, st.session_state.username, st.session_state.role = True, u, 'RENTER'
                     st.rerun()
+                else: st.warning("⏳ Account pending Admin approval.")
             else: st.error("❌ Invalid credentials.")
     st.stop()
 
-with st.sidebar:
-    st.subheader("📝 Renter Policies")
-    st.markdown("* *Fuel:* Match pickup level.\n* *Clean:* Return clean or ₱1.5K fee.\n* *Damage:* Renter liable.\n* *Late:* ₱500/hr.")
-
-st.title("🚙 DriveElite Showroom")
 renter_user = st.session_state.username
-tabs = st.tabs(["🌟 SHOWROOM", "📅 MY TRIPS"])
+
+with st.sidebar:
+    st.markdown(f"### 👤 Welcome, {renter_user}!")
+    st.markdown("""
+    *Quick Rules:*
+    * *Fuel:* Match pickup level.
+    * *Clean:* Return clean.
+    * *Late:* ₱250/hr penalty.
+    * *RFID:* Renter must load the RFID card to avoid delays.
+    * *Speed Limit:* Please obeserve speed limit.
+    * *Security Deposit:* ₱5,000.00 Thru GCASH or Cash before Handover.
+    """)
+    if st.button("🔒 LOGOUT", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+tabs = st.tabs(["🌟 VEHICLE SHOWROOM", "📅 MY BOOKINGS"])
 
 with tabs[0]:
-    try: cat_list = ["All"] + pd.read_sql_query("SELECT name FROM vehicle_categories", conn)['name'].tolist()
+    try:
+        promo = pd.read_sql_query("SELECT title, message FROM admin_promos WHERE active = 1 ORDER BY id DESC LIMIT 1", conn)
+        if not promo.empty:
+            st.markdown(f'<div class="promo-banner"><h2 style="margin:0;">🔥 {promo.iloc[0]["title"]} 🔥</h2><p style="margin:5px 0 0 0; font-size:18px;">{promo.iloc[0]["message"]}</p></div>', unsafe_allow_html=True)
+    except: pass
+
+    try:
+        cat_df = pd.read_sql_query("SELECT name FROM vehicle_categories", conn)
+        cat_list = ["All"] + [str(n).strip() for n in cat_df['name'].tolist()]
     except: cat_list = ["All", "Sedan", "SUV", "Van"]
-    cat_filter = st.selectbox("FILTER CATEGORY", cat_list)
     
-    available_cars = pd.read_sql_query("SELECT * FROM vehicles WHERE admin_status = 'APPROVED' AND booking_status = 'AVAILABLE'", conn)
-    if cat_filter != "All" and not available_cars.empty: 
-        available_cars = available_cars[available_cars['category'].astype(str).str.strip().str.lower() == cat_filter.strip().lower()]
+    c_f1, c_f2 = st.columns([2, 1])
+    cat_filter = c_f1.selectbox("Filter by Category", cat_list)
+    search_query = c_f2.text_input("Search Brand/Model", placeholder="e.g. Nissan")
 
-    for i, car in available_cars.iterrows():
-        with st.container(border=True):
-            col1, col2 = st.columns([1, 2])
-            with col1:
-                if car.get('vehicle_img'): st.image(car['vehicle_img'])
-            with col2:
-                st.write(f"### {car['make']} {car['model']}")
-                reviews_df = pd.read_sql_query("SELECT rating, review_text FROM reviews WHERE vehicle_id = ?", conn, params=(car['id'],))
-                if not reviews_df.empty: st.write(f"⭐ *{reviews_df['rating'].mean():.1f} / 5.0* ({len(reviews_df)} Reviews)")
-                st.write(f"*Rate:* ₱{car['approved_price']:,.2f} / day")
-                
-                with st.popover(f"BOOK THIS {car['model']}"):
-                    dest = st.text_input("Destination", key=f"d_{car['id']}")
-                    drive_type = st.radio("Drive Type", ["Self-Drive", "With Driver"], key=f"dt_{car['id']}", horizontal=True)
-                    
-                    c_loc1, c_loc2 = st.columns(2)
-                    p_loc = c_loc1.text_input("Pickup Location", key=f"pl_{car['id']}")
-                    r_loc = c_loc2.text_input("Return Location", key=f"rl_{car['id']}")
-                    
-                    c3, c4 = st.columns(2)
-                    p_date = c3.date_input("Pickup Date", datetime.date.today(), key=f"pd_{car['id']}")
-                    p_time = c4.time_input("Pickup Time", datetime.time(8, 0), key=f"pt_{car['id']}")
-                    
-                    c5, c6 = st.columns(2)
-                    r_date = c5.date_input("Return Date", datetime.date.today() + datetime.timedelta(days=1), key=f"rd_{car['id']}")
-                    r_time = c6.time_input("Return Time", datetime.time(18, 0), key=f"rt_{car['id']}")
-                    
-                    days = (r_date - p_date).days if (r_date - p_date).days > 0 else 1
-                    gross_total = days * car['approved_price']
-                    security_deposit = 5000.00 
-                    net_settlement = gross_total + security_deposit
-                    
-                    st.markdown(f"""
-                    <div class="bill-box">
-                        <table style="width:100%">
-                            <tr><td><b>Gross Rental ({days} Days)</b></td><td style="text-align:right">₱{gross_total:,.2f}</td></tr>
-                            <tr><td><b>Add: Security Deposit (Refundable)</b></td><td style="text-align:right; color:green">+ ₱{security_deposit:,.2f}</td></tr>
-                            <tr style="border-top: 2px solid black"><td><b>TOTAL DUE NOW</b></td><td style="text-align:right"><b>₱{net_settlement:,.2f}</b></td></tr>
-                        </table>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    method = st.radio("Payment Method", ["📱 GCash/Maya", "💳 Credit Card"], key=f"m_{car['id']}")
-                    
-                    cc_name, cc_num, cc_exp, cc_cvv, e_ref = "", "", "", "", ""
-                    
-                    if method == "📱 GCash/Maya":
-                        if os.path.exists("admin_qr.png"): st.image("admin_qr.png", width=180)
-                        st.write(f"*Pay exactly: ₱{net_settlement:,.2f} to Romeo A.*")
-                        e_ref = st.text_input("Enter Reference No.", key=f"ref_{car['id']}")
-                    else:
-                        st.markdown("🔒 *Secure Credit Card Checkout*")
-                        cc_name = st.text_input("Name on Card", placeholder="Juan Dela Cruz", key=f"ccname_{car['id']}")
-                        cc_num = st.text_input("Card Number", max_chars=19, placeholder="0000 0000 0000 0000", key=f"ccnum_{car['id']}")
-                        c_exp, c_cvv = st.columns(2)
-                        cc_exp = c_exp.text_input("Expiry Date", placeholder="MM/YY", max_chars=5, key=f"ccexp_{car['id']}")
-                        cc_cvv = c_cvv.text_input("CVV", type="password", max_chars=4, placeholder="123", key=f"cccvv_{car['id']}")
+    query = "SELECT * FROM vehicles WHERE admin_status = 'APPROVED' AND booking_status = 'AVAILABLE'"
+    cars = pd.read_sql_query(query, conn)
 
-                    if st.button("CONFIRM & PAY", key=f"btn_{car['id']}", type="primary", use_container_width=True):
-                        if not dest or not p_loc or not r_loc:
-                            st.error("⚠️ Please fill in Destination and Pickup/Return locations.")
-                        elif method == "💳 Credit Card" and (not cc_name or not cc_num or not cc_exp or not cc_cvv):
-                            st.error("⚠️ Please fill in all Credit Card details.")
-                        elif method == "📱 GCash/Maya" and not e_ref:
-                            st.error("⚠️ Please enter your GCash/Maya Reference Number.")
-                        else:
-                            with st.spinner("🔒 Connecting to secure payment gateway..."):
-                                time.sleep(2.5) 
-                                
-                                cursor = conn.cursor()
-                                p_str = f"{p_date} {p_time.strftime('%I:%M %p')}"
-                                r_str = f"{r_date} {r_time.strftime('%I:%M %p')}"
-                                
-                                cursor.execute("INSERT INTO bookings (vehicle_id, renter_username, amount, pickup_loc, return_loc, destination, pickup_time, return_time, drive_type, payment_method, status) VALUES (?,?,?,?,?,?,?,?,?,?, 'CONFIRMED')", (car['id'], renter_user, net_settlement, p_loc, r_loc, dest, p_str, r_str, drive_type, method))
-                                bid = cursor.lastrowid
-                                conn.execute("UPDATE vehicles SET booking_status = 'BOOKED' WHERE id = ?", (car['id'],))
-                                conn.commit()
-                                
-                                st.success("✅ Payment Approved & Booking Confirmed!")
-                                receipt_data = {'ref': f"DRV-{bid:05d}", 'user': renter_user, 'vehicle': f"{car['make']} {car['model']}", 'gross': gross_total, 'deposit': security_deposit, 'net': net_settlement}
-                                st.markdown(create_pdf_download(receipt_data), unsafe_allow_html=True)
-                                time.sleep(3)
-                                st.rerun()
+    if cat_filter != "All": cars = cars[cars['category'].str.strip() == cat_filter]
+    if search_query: cars = cars[cars['make'].str.contains(search_query, case=False) | cars['model'].str.contains(search_query, case=False)]
+
+    if cars.empty: st.info("No vehicles currently matching your search. Check back soon!")
+    else:
+        for i, car in cars.iterrows():
+            with st.container(border=True):
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    if car.get('vehicle_img'): st.image(car['vehicle_img'], use_container_width=True)
+                with col2:
+                    st.write(f"### {car['make']} {car['model']} ({car['year']})")
+                    st.write(f"*Category:* {car['category']} | *Plate:* {car['plate']}")
+                    st.write(f"#### ₱{car['approved_price']:,.2f} / Day")
+                    
+                    with st.popover(f"⚡ BOOK {car['model'].upper()} NOW"):
+                        st.write("### 📍 Trip Details")
+                        
+                        drive_mode = st.radio("Driving Mode", ["Self-Drive", "With Professional Driver (+₱1,000/day)"], key=f"dm_{car['id']}")
+                        is_with_driver = 1 if "Driver" in drive_mode else 0
+                        
+                        if is_with_driver:
+                            st.info("👨‍✈️ *Driver Terms:* 10 hours duty/day. Overtime is ₱200/hr. Renter must provide driver meals (or ₱300/day) and safe overnight accommodation if outside Metro Manila.")
+                        
+                        dest = st.text_input("Destination", key=f"dest_{car['id']}")
+                        
+                        c_loc1, c_loc2 = st.columns(2)
+                        p_loc = c_loc1.text_input("Pickup Location", placeholder="e.g. NAIA Terminal 3", key=f"ploc_{car['id']}")
+                        r_loc = c_loc2.text_input("Return Location", placeholder="e.g. NAIA Terminal 3", key=f"rloc_{car['id']}")
+                        
+                        c_date1, c_date2 = st.columns(2)
+                        p_date = c_date1.date_input("Pickup Date", datetime.date.today(), key=f"pdate_{car['id']}")
+                        p_time = c_date1.time_input("Pickup Time", datetime.time(9, 0), key=f"ptime_{car['id']}")
+                        
+                        r_date = c_date2.date_input("Return Date", datetime.date.today() + datetime.timedelta(days=1), key=f"rdate_{car['id']}")
+                        r_time = c_date2.time_input("Return Time", datetime.time(9, 0), key=f"rtime_{car['id']}")
+                        
+                        p_datetime = f"{p_date} {p_time.strftime('%I:%M %p')}"
+                        r_datetime = f"{r_date} {r_time.strftime('%I:%M %p')}"
+                        
+                        days = (r_date - p_date).days if (r_date - p_date).days > 0 else 1
+                        subtotal = days * car['approved_price']
+                        
+                        driver_fee = days * 1000.0 if is_with_driver else 0.0
+                        
+                        discount_pct = 0
+                        if days >= 30: discount_pct = 0.20
+                        elif days >= 14: discount_pct = 0.10
+                        elif days >= 7: discount_pct = 0.05
+                        
+                        savings = subtotal * discount_pct
+                        total_rent = (subtotal - savings) + driver_fee
+                        deposit = 5000.00
+                        grand_total = total_rent + deposit
+                        
+                        if savings > 0:
+                            st.markdown(f'<div class="savings-badge">🎉 You saved ₱{savings:,.2f}!</div>', unsafe_allow_html=True)
+                        
+                        # --- BULLETPROOF HTML BILL BOX ---
+                        bill_html = '<div class="bill-box"><table style="width:100%">'
+                        bill_html += f'<tr><td>Rental ({days} Days)</td><td style="text-align:right">₱{subtotal:,.2f}</td></tr>'
+                        if is_with_driver:
+                            bill_html += f'<tr><td style="color:#0056b3">Professional Driver Fee</td><td style="text-align:right; color:#0056b3">+ ₱{driver_fee:,.2f}</td></tr>'
+                        bill_html += f'<tr><td style="color:red">Long-stay Discount</td><td style="text-align:right; color:red">- ₱{savings:,.2f}</td></tr>'
+                        bill_html += f'<tr><td style="color:green">Refundable Deposit</td><td style="text-align:right; color:green">+ ₱{deposit:,.2f}</td></tr>'
+                        bill_html += f'<tr style="border-top:2px solid #000"><td><b>GRAND TOTAL</b></td><td style="text-align:right"><b>₱{grand_total:,.2f}</b></td></tr>'
+                        bill_html += '</table></div>'
+                        
+                        st.markdown(bill_html, unsafe_allow_html=True)
+                        
+                        st.divider()
+                        pay_method = st.radio("Payment Method", ["GCash / Maya", "Credit Card"], key=f"pay_{car['id']}")
+                        
+                        ref_num = ""
+                        if pay_method == "GCash / Maya":
+                            st.info("📲 Scan the QR code below to send your payment directly to DriveElite.")
+                            try:
+                                st.image("gcash_qr.jpg", caption=f"Scan to Pay: ₱{grand_total:,.2f}", width=250)
+                            except:
+                                st.warning("⚠️ [Admin: Please save your QR image as 'gcash_qr.jpg' in the main folder so it appears here.]")
+                            
+                            ref_num = st.text_input("Enter GCash/Maya Reference Number *", placeholder="e.g. 100239481923", key=f"ref_{car['id']}")
+                        elif pay_method == "Credit Card":
+                            st.warning("Credit Card processing is currently offline. Please use GCash/Maya.")
+                        
+                        if st.button("CONFIRM BOOKING", type="primary", use_container_width=True, key=f"btn_{car['id']}"):
+                            if not dest or not p_loc or not r_loc: st.error("Please fill Destination, Pickup Location, and Return Location.")
+                            elif pay_method == "GCash / Maya" and not ref_num: st.error("Please enter the GCash/Maya Reference Number.")
+                            elif pay_method == "Credit Card": st.error("Please select GCash/Maya to proceed.")
+                            else:
+                                with st.spinner("Verifying Payment Reference..."):
+                                    time.sleep(2)
+                                    final_payment_string = f"GCash (Ref: {ref_num})"
+                                    
+                                    conn.execute("""INSERT INTO bookings 
+                                        (vehicle_id, renter_username, amount, status, pickup_loc, return_loc, destination, pickup_time, return_time, payment_method, with_driver) 
+                                        VALUES (?, ?, ?, 'CONFIRMED', ?, ?, ?, ?, ?, ?, ?)""", 
+                                        (car['id'], renter_user, grand_total, p_loc, r_loc, dest, p_datetime, r_datetime, final_payment_string, is_with_driver))
+                                    conn.execute("UPDATE vehicles SET booking_status = 'BOOKED' WHERE id = ?", (car['id'],))
+                                    conn.commit()
+                                    
+                                    st.success("✅ Payment Verified & Booking Confirmed! See 'My Trips' for details.")
+                                    time.sleep(2); st.rerun()
 
 with tabs[1]:
-    st.subheader("MY BOOKINGS")
-    # Added b.vehicle_id to the query here so the review system knows which car it is!
-    my_trips = pd.read_sql_query("SELECT b.id, b.vehicle_id, printf('DRV-%05d', b.id) as 'Ref', v.make, v.model, b.amount, b.status FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.renter_username=?", conn, params=(renter_user,))
-    
-    # We drop vehicle_id here so it stays hidden from the clean user table
-    st.dataframe(my_trips.drop(columns=['id', 'vehicle_id', 'make', 'model']), hide_index=True)
-    
-    completed = my_trips[my_trips['status'] == 'COMPLETED']
-    for i, trip in completed.iterrows():
-        rev_check = pd.read_sql_query("SELECT * FROM reviews WHERE booking_id = ?", conn, params=(int(trip['id']),))
-        if rev_check.empty:
-            with st.expander(f"⭐ Rate your {trip['make']} trip ({trip['Ref']})"):
-                with st.form(f"rev_{trip['id']}"):
-                    r = st.slider("Rating", 1, 5, 5)
-                    t = st.text_area("Review")
-                    if st.form_submit_button("Submit Review"):
-                        conn.execute("INSERT INTO reviews (booking_id, vehicle_id, renter_username, rating, review_text) VALUES (?,?,?,?,?)", (int(trip['id']), int(trip['vehicle_id']), renter_user, r, t))
-                        conn.commit()
-                        st.rerun()
+    st.subheader("Manage Your Trips")
+    try:
+        my_trips = pd.read_sql_query("""
+            SELECT b.id, v.make, v.model, b.amount, b.status, b.pickup_time, b.return_time, b.pickup_loc, b.return_loc, b.destination, b.with_driver 
+            FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id 
+            WHERE b.renter_username = ? ORDER BY b.id DESC""", conn, params=(renter_user,))
+        
+        if my_trips.empty: st.info("You haven't booked any trips yet.")
+        else:
+            for i, t in my_trips.iterrows():
+                with st.expander(f"Booking #DRV-{t['id']:05d} | {t['make']} {t['model']} ({t['status']})"):
+                    if t.get('with_driver', 0) == 1: st.markdown("👨‍✈️ *[TRIP INCLUDES PROFESSIONAL DRIVER]*")
+                    st.write(f"*Dest:* {t.get('destination', 'N/A')}")
+                    st.write(f"*Pickup:* {t.get('pickup_loc', 'N/A')} at {t['pickup_time']}")
+                    st.write(f"*Return:* {t.get('return_loc', 'N/A')} at {t['return_time']}")
+                    st.write(f"*Total Paid:* ₱{t['amount']:,.2f}")
+    except: pass
