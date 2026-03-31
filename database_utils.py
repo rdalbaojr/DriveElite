@@ -1,48 +1,36 @@
 import sqlite3
+import os
 
 def get_connection():
-    # Connect to the SQLite database
-    conn = sqlite3.connect('driveelite.db', check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    # Still using our v2 database!
+    conn = sqlite3.connect("driveelite_v2.db", check_same_thread=False)
     
-    # 1. Users Table
+    # Users Table
     conn.execute('''CREATE TABLE IF NOT EXISTS users
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT, full_name TEXT, age INTEGER, contact_number TEXT, address TEXT, nationality TEXT, id_img TEXT, license_img TEXT, admin_status TEXT)''')
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT, role TEXT, full_name TEXT, age INTEGER, nationality TEXT, address TEXT, contact_number TEXT, id_img TEXT, license_img TEXT, admin_status TEXT DEFAULT 'PENDING')''')
     
-    # Safely upgrade existing database with the new Nationality column
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN nationality TEXT DEFAULT 'Filipino'")
-        conn.commit()
-    except: pass
-                    
-    # 2. Vehicles Table
+    # Vehicles Table
     conn.execute('''CREATE TABLE IF NOT EXISTS vehicles
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_username TEXT, make TEXT, model TEXT, year TEXT, plate TEXT, bank_name TEXT, account_no TEXT, vehicle_img TEXT, or_cr_img TEXT, category TEXT, approved_price REAL, admin_status TEXT DEFAULT 'PENDING', booking_status TEXT DEFAULT 'AVAILABLE')''')
-                    
-    # 3. Bookings/Trips Table
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_username TEXT, make TEXT, model TEXT, year TEXT, plate TEXT, bank_name TEXT, account_no TEXT, vehicle_img TEXT, or_cr_img TEXT, insurance_img TEXT, category TEXT, approved_price REAL, admin_status TEXT DEFAULT 'PENDING', booking_status TEXT DEFAULT 'AVAILABLE')''')
+    
+    # Bookings Table 
     conn.execute('''CREATE TABLE IF NOT EXISTS bookings
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT, vehicle_id INTEGER, renter_username TEXT, amount REAL, pickup_loc TEXT, return_loc TEXT, destination TEXT, pickup_time TEXT, return_time TEXT, drive_type TEXT, payment_method TEXT, status TEXT, payout_status TEXT DEFAULT 'PENDING')''')
-
-    # 4. Drivers Table
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, vehicle_id INTEGER, renter_username TEXT, amount REAL, status TEXT, pickup_loc TEXT, return_loc TEXT, destination TEXT, pickup_time TEXT, return_time TEXT, payment_method TEXT, front_img TEXT, back_img TEXT, left_img TEXT, right_img TEXT, odometer_img TEXT, dseat_img TEXT, pseat_img TEXT, tire_img TEXT, trunk_img TEXT, actual_dl_img TEXT, damage_img TEXT, payout_status TEXT DEFAULT 'PENDING', with_driver INTEGER DEFAULT 0, assigned_driver TEXT)''')
+    
+    # Promos
+    conn.execute('''CREATE TABLE IF NOT EXISTS admin_promos
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, message TEXT, active INTEGER DEFAULT 1)''')
+                    
+    # Categories
+    conn.execute('''CREATE TABLE IF NOT EXISTS vehicle_categories
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, default_price REAL)''')
+                    
+    # Drivers Table
     conn.execute('''CREATE TABLE IF NOT EXISTS drivers
                     (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_username TEXT, first_name TEXT, middle_name TEXT, last_name TEXT, age INTEGER, address TEXT, contact_number TEXT, is_owner INTEGER, license_img TEXT, govt_id_img TEXT, admin_status TEXT DEFAULT 'PENDING')''')
-
-    # 5. Vehicle Categories Table
-    conn.execute('''CREATE TABLE IF NOT EXISTS vehicle_categories 
-                    (name TEXT PRIMARY KEY, default_price REAL)''')
-
-    # 6. Reviews Table
-    conn.execute('''CREATE TABLE IF NOT EXISTS reviews
-                    (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER, vehicle_id INTEGER, renter_username TEXT, rating INTEGER, review_text TEXT)''')
-                    
-    # 7. NEW: Support Chats Table for Messenger
+    
+    # --- NEW: SUPPORT CHATS TABLE ADDED BACK! ---
     conn.execute('''CREATE TABLE IF NOT EXISTS support_chats
                     (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, receiver TEXT, message TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    
-    conn.commit()
+                    
     return conn
-    
-    conn.commit()
-    return conn
-
-
