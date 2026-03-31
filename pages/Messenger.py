@@ -2,84 +2,85 @@ import streamlit as st
 import pandas as pd
 from database_utils import get_connection
 
-# --- UNIVERSAL THEME & PAGE CONFIG ---
-st.set_page_config(page_title="DriveElite Messenger", layout="wide")
-st.markdown("""
-<style>
-    .stApp { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
-    [data-testid='stSidebarNav'] span { text-transform: uppercase !important; font-weight: bold !important; }
-    div[data-baseweb="input"] > div, div[data-baseweb="base-input"], div[data-baseweb="select"] > div, textarea {
-        background-color: #ffffff !important; border: 2px solid #cbd5e1 !important; border-radius: 6px !important; color: #0f172a !important;
-    }
-    div[data-baseweb="input"] > div:focus-within, div[data-baseweb="base-input"]:focus-within, div[data-baseweb="select"] > div:focus-within, textarea:focus {
-        border-color: #2563eb !important; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# THE CRITICAL DATABASE CONNECTION
-conn = get_connection()
+st.set_page_config(page_title="DriveElite Messenger", layout="centered")
 
 if not st.session_state.get('logged_in'):
-    st.warning("Please log in through your respective portal first to access the Messenger.")
+    st.warning("Please login to access the Messenger.")
     st.stop()
 
+conn = get_connection()
 current_user = st.session_state.username
-role = st.session_state.role
+role = st.session_state.get('role', 'USER')
 
-st.title("DRIVEELITE MESSENGER")
+st.title("💬 DRIVEELITE MESSENGER")
 st.write(f"Logged in securely as: *{current_user.upper()}* ({role})")
-st.divider()
 
-# --- FETCH USERS DIRECTORY ---
-try:
-    # Allow users to message anyone except themselves
-    users_df = pd.read_sql_query("SELECT username, role, full_name FROM users WHERE username != ? AND admin_status = 'APPROVED'", conn, params=(current_user,))
+# --- Get list of users from the Database ---
+users_df = pd.read_sql_query("SELECT username, role, full_name FROM users WHERE username != ?", conn, params=(current_user,))
+
+contacts = []
+
+# --- Manually insert the Admin into the list! ---
+if current_user != "masterom":
+    contacts.append("masterom (System Admin) - ADMIN")
     
-    if users_df.empty:
-        st.info("No other approved users are available to chat with yet.")
+for _, r in users_df.iterrows():
+    name = r['full_name'] if r['full_name'] else r['username']
+    contacts.append(f"{r['username']} ({name}) - {r['role']}")
+
+if not contacts:
+    st.info("No other users found on the platform yet.")
+    st.stop()
+
+# Dropdown to select who to message
+selected_contact_str = st.selectbox("Select someone to message:", contacts)
+
+# Extract just the username
+receiver_username = selected_contact_str.split(" ")[0]
+
+st.markdown(f"### Chat History with @{receiver_username}")
+
+# --- Fetch Chat History ---
+chat_query = """
+    SELECT sender, message, ts 
+    FROM support_chats 
+    WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?) 
+    ORDER BY ts ASC
+"""
+chats = pd.read_sql_query(chat_query, conn, params=(current_user, receiver_username, receiver_username, current_user))
+
+# --- BEAUTIFUL FB MESSENGER UI ---
+chat_container = st.container(height=450)
+with chat_container:
+    if chats.empty:
+        st.info("Say hello to start the conversation!")
     else:
-        # Create a clean dropdown list
-        user_list = [f"{row['full_name']} (@{row['username']}) - {row['role']}" for _, row in users_df.iterrows()]
-        selected_user_str = st.selectbox("Select someone to message:", user_list)
-        
-        # Extract the exact username from the dropdown string
-        receiver_username = selected_user_str.split("(@")[1].split(")")[0]
-
-        st.divider()
-        st.subheader(f"Chat History with @{receiver_username}")
-
-        # --- DISPLAY CHAT HISTORY ---
-        chat_query = """
-        SELECT sender, message, ts FROM support_chats 
-        WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?) 
-        ORDER BY ts ASC
-        """
-        chats = pd.read_sql_query(chat_query, conn, params=(current_user, receiver_username, receiver_username, current_user))
-
-        # Create a scrolling container for messages
-        chat_container = st.container(height=400)
-        with chat_container:
-            if chats.empty:
-                st.write("No messages yet. Say hello!")
+        for _, c in chats.iterrows():
+            if c['sender'] == current_user:
+                # FB Style: Your Messages (Blue, Right-aligned)
+                st.markdown(f"""
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                    <div style="background-color: #0084FF; color: white; padding: 10px 15px; border-radius: 20px 20px 5px 20px; max-width: 75%; font-family: Arial, sans-serif; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+                        {c['message']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                for _, chat in chats.iterrows():
-                    # If I sent the message
-                    if chat['sender'] == current_user:
-                        with st.chat_message("user"):
-                            st.write(f"*You:* {chat['message']}")
-                    # If they sent the message
-                    else:
-                        with st.chat_message("assistant"):
-                            st.write(f"*@{chat['sender']}:* {chat['message']}")
+                # FB Style: Their Messages (Grey, Left-aligned)
+                st.markdown(f"""
+                <div style="display: flex; justify-content: flex-start; margin-bottom: 10px;">
+                    <div style="background-color: #E4E6EB; color: black; padding: 10px 15px; border-radius: 20px 20px 20px 5px; max-width: 75%; font-family: Arial, sans-serif; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+                        <small style="color: #65676B;">@{c['sender']}</small><br>
+                        {c['message']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        # --- SEND NEW MESSAGE ---
-        new_msg = st.chat_input("Type your message here...")
-        if new_msg:
-            conn.execute("INSERT INTO support_chats (sender, receiver, message) VALUES (?, ?, ?)", (current_user, receiver_username, new_msg))
+# --- Send a new message ---
+with st.form("send_msg", clear_on_submit=True):
+    msg = st.text_input("Type your message here...", placeholder="Type here and press Enter to send...")
+    if st.form_submit_button("Send Message", type="primary", use_container_width=True):
+        if msg.strip():
+            conn.execute("INSERT INTO support_chats (sender, receiver, message) VALUES (?, ?, ?)", (current_user, receiver_username, msg))
             conn.commit()
             st.rerun()
-
-# THIS IS THE BLOCK THAT WAS MISSING!
-except Exception as e:
-    st.error(f"Database error: {e}")
