@@ -48,7 +48,6 @@ if st.session_state.otp_pending:
             if user_otp == st.session_state.generated_otp:
                 try:
                     p = st.session_state.reg_payload
-                    # Added nationality to the payload insertion
                     conn.execute("INSERT INTO users (username, password, role, full_name, age, contact_number, address, nationality, id_img, license_img, admin_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')", p)
                     conn.commit()
                     
@@ -192,5 +191,3 @@ else:
                         st.session_state.otp_pending = True
                         st.rerun()
                 else: st.error("⚠️ Please fill out all required fields and upload BOTH IDs.")
-
-
