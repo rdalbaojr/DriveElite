@@ -12,6 +12,7 @@ st.markdown("""
     .promo-banner { background: linear-gradient(90deg, #ff4b4b, #ff8f8f); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 25px; }
     .bill-box { background-color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #e0e0e0; margin-top: 10px; }
     .savings-badge { background-color: #d4edda; color: #155724; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; }
+    .star-rating { color: #FFD700; font-size: 18px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -40,10 +41,7 @@ with st.sidebar:
     *Quick Rules:*
     * *Fuel:* Match pickup level.
     * *Clean:* Return clean.
-    * *Late:* ₱250/hr penalty.
-    * *RFID:* Renter must load the RFID card to avoid delays.
-    * *Speed Limit:* Please obeserve speed limit.
-    * *Security Deposit:* ₱5,000.00 Thru GCASH or Cash before Handover.
+    * *Late:* ₱500/hr penalty.
     """)
     if st.button("🔒 LOGOUT", use_container_width=True):
         st.session_state.clear()
@@ -82,6 +80,19 @@ with tabs[0]:
                     if car.get('vehicle_img'): st.image(car['vehicle_img'], use_container_width=True)
                 with col2:
                     st.write(f"### {car['make']} {car['model']} ({car['year']})")
+                    
+                    try:
+                        rat_df = pd.read_sql_query("SELECT AVG(rating) as avg, COUNT(rating) as cnt FROM bookings WHERE vehicle_id=? AND rating IS NOT NULL", conn, params=(car['id'],))
+                        if not rat_df.empty and pd.notnull(rat_df.iloc[0]['avg']):
+                            real_rating = float(rat_df.iloc[0]['avg'])
+                            rev_count = int(rat_df.iloc[0]['cnt'])
+                            stars = int(round(real_rating))
+                            st.markdown(f"<span class='star-rating'>{'⭐' * stars}</span> *{real_rating:.1f}* ({rev_count} Reviews)", unsafe_allow_html=True)
+                        else:
+                            st.markdown("✨ *New on DriveElite* (No reviews yet)", unsafe_allow_html=True)
+                    except:
+                        st.markdown("✨ *New on DriveElite* (No reviews yet)", unsafe_allow_html=True)
+                    
                     st.write(f"*Category:* {car['category']} | *Plate:* {car['plate']}")
                     st.write(f"#### ₱{car['approved_price']:,.2f} / Day")
                     
@@ -128,7 +139,6 @@ with tabs[0]:
                         if savings > 0:
                             st.markdown(f'<div class="savings-badge">🎉 You saved ₱{savings:,.2f}!</div>', unsafe_allow_html=True)
                         
-                        # --- BULLETPROOF HTML BILL BOX ---
                         bill_html = '<div class="bill-box"><table style="width:100%">'
                         bill_html += f'<tr><td>Rental ({days} Days)</td><td style="text-align:right">₱{subtotal:,.2f}</td></tr>'
                         if is_with_driver:
@@ -178,7 +188,7 @@ with tabs[1]:
     st.subheader("Manage Your Trips")
     try:
         my_trips = pd.read_sql_query("""
-            SELECT b.id, v.make, v.model, b.amount, b.status, b.pickup_time, b.return_time, b.pickup_loc, b.return_loc, b.destination, b.with_driver 
+            SELECT b.id, v.make, v.model, b.amount, b.status, b.pickup_time, b.return_time, b.pickup_loc, b.return_loc, b.destination, b.with_driver, b.rating, b.review 
             FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id 
             WHERE b.renter_username = ? ORDER BY b.id DESC""", conn, params=(renter_user,))
         
@@ -191,4 +201,30 @@ with tabs[1]:
                     st.write(f"*Pickup:* {t.get('pickup_loc', 'N/A')} at {t['pickup_time']}")
                     st.write(f"*Return:* {t.get('return_loc', 'N/A')} at {t['return_time']}")
                     st.write(f"*Total Paid:* ₱{t['amount']:,.2f}")
-    except: pass
+                    
+                    # --- THE FIX: INTERACTIVE CLICKABLE STARS! ---
+                    if t['status'] == 'COMPLETED':
+                        st.divider()
+                        if pd.isnull(t.get('rating')):
+                            st.write("### 📣 Rate your experience")
+                            
+                            # Interactive Star Widget!
+                            star_index = st.feedback("stars", key=f"star_fb_{t['id']}")
+                            user_review = st.text_input("Leave a short review (optional)", key=f"rev_text_{t['id']}")
+                            
+                            if st.button("SUBMIT REVIEW", type="primary", key=f"btn_rate_{t['id']}"):
+                                if star_index is None:
+                                    st.error("Please click the stars to leave a rating!")
+                                else:
+                                    # st.feedback returns 0-4. We add 1 to make it 1-5 stars.
+                                    actual_rating = star_index + 1  
+                                    conn.execute("UPDATE bookings SET rating=?, review=? WHERE id=?", (actual_rating, user_review, t['id']))
+                                    conn.commit()
+                                    st.success("Review submitted! Thank you.")
+                                    time.sleep(1); st.rerun()
+                        else:
+                            stars = int(t['rating'])
+                            st.info(f"*You rated this trip:* {'⭐' * stars}")
+                            if t.get('review'): st.write(f"{t['review']}")
+    except Exception as e:
+        st.error(f"Error loading trips: {e}")
