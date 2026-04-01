@@ -5,7 +5,6 @@ from database_utils import get_connection
 st.set_page_config(page_title="DriveElite Admin", layout="wide")
 conn = get_connection()
 
-# Auth Check
 if not st.session_state.get('logged_in') or st.session_state.get('role') != 'ADMIN':
     st.title("ADMIN LOGIN")
     with st.form("login"):
@@ -26,13 +25,10 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# DEFINING 6 TABS (Renamed first tab to PENDING APPROVALS)
 tabs = st.tabs(["PENDING APPROVALS", "ASSETS", "LOGISTICS", "FINANCIALS", "🗄️ FILING CABINET", "PROMOS & DB"])
 
 with tabs[0]:
     st.markdown("<h3 style='text-align: center;'>📋 PENDING APPROVALS</h3>", unsafe_allow_html=True)
-    
-    # NEW: 3 Sub-tabs for better organization!
     p_tabs = st.tabs(["🚙 PENDING RENTERS", "💼 PENDING AFFILIATES", "👨‍✈️ PENDING DRIVERS"])
     
     with p_tabs[0]:
@@ -59,7 +55,6 @@ with tabs[0]:
                 if st.button("APPROVE AFFILIATE", key=f"aa_{r['id']}", type="primary", use_container_width=True):
                     conn.execute("UPDATE users SET admin_status = 'APPROVED' WHERE id = ?", (r['id'],)); conn.commit(); st.rerun()
 
-    # --- NEW: ADMIN CAN NOW APPROVE DRIVERS ---
     with p_tabs[2]:
         drivers = pd.read_sql_query("SELECT * FROM drivers WHERE admin_status = 'PENDING'", conn)
         if drivers.empty: st.info("No pending drivers.")
@@ -67,11 +62,9 @@ with tabs[0]:
             with st.expander(f"{d['first_name']} {d['last_name']} (Affiliate: @{d['owner_username']})"):
                 st.write(f"*Age:* {d['age']} | *Contact:* {d['contact_number']} | *Address:* {d['address']}")
                 if d['is_owner']: st.info("ℹ️ This driver is also the registered Affiliate Owner.")
-                
                 c_img1, c_img2 = st.columns(2)
                 if d.get('govt_id_img'): c_img1.image(d['govt_id_img'], caption="Govt ID")
                 if d.get('license_img'): c_img2.image(d['license_img'], caption="Professional License")
-                
                 if st.button("APPROVE DRIVER", key=f"da_{d['id']}", type="primary", use_container_width=True):
                     conn.execute("UPDATE drivers SET admin_status = 'APPROVED' WHERE id = ?", (d['id'],)); conn.commit(); st.rerun()
 
@@ -98,65 +91,134 @@ with tabs[2]:
     except: pass
 
 with tabs[3]:
-    st.header("💰 Financial Ledger")
-    c_in, c_out = st.columns(2)
-    with c_in:
-        st.subheader("📥 INCOMING: Verify Renters")
-        try:
-            q_in = "SELECT b.id, b.amount, b.payment_method, u.full_name FROM bookings b JOIN users u ON b.renter_username = u.username WHERE b.status IN ('CONFIRMED', 'ONGOING') ORDER BY b.id DESC"
-            incoming = pd.read_sql_query(q_in, conn)
-            if incoming.empty: st.info("No recent incoming payments to verify.")
-            for _, r in incoming.iterrows():
-                with st.container(border=True):
-                    st.write(f"*DRV-{r['id']:05d}* | {r['full_name']} | ₱{r['amount']:,.2f}")
-                    st.success(f"*{r.get('payment_method', 'No Reference')}*")
-        except: pass
+    st.markdown("<h2 style='text-align: center;'>🏦 MASTER FINANCIAL LEDGER</h2>", unsafe_allow_html=True)
+    try:
+        query = """
+        SELECT 
+            b.id, b.pickup_time as Date, u_renter.full_name as Renter, u_owner.full_name as Affiliate,
+            b.amount as Gross_Revenue, b.status as Trip_Status, b.payout_status as Payout_Status,
+            v.bank_name, v.account_no
+        FROM bookings b
+        JOIN vehicles v ON b.vehicle_id = v.id
+        JOIN users u_renter ON b.renter_username = u_renter.username
+        JOIN users u_owner ON v.owner_username = u_owner.username
+        ORDER BY b.id DESC
+        """
+        df = pd.read_sql_query(query, conn)
+        
+        if df.empty:
+            st.info("No financial transactions recorded yet.")
+        else:
+            df['Date_Clean'] = pd.to_datetime(df['Date'].astype(str).str[:10], errors='coerce')
+            df['Affiliate_Share (85%)'] = df['Gross_Revenue'] * 0.85
+            df['DriveElite_Fee (15%)'] = df['Gross_Revenue'] * 0.15
+            df['Ref'] = df['id'].apply(lambda x: f"DRV-{x:05d}")
+            
+            total_gross = df['Gross_Revenue'].sum()
+            total_de = df['DriveElite_Fee (15%)'].sum()
+            pending_payouts = df[(df['Payout_Status'] == 'PENDING') & (df['Trip_Status'] == 'COMPLETED')]['Affiliate_Share (85%)'].sum()
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("💰 Total Platform Gross", f"₱{total_gross:,.2f}")
+            c2.metric("🏢 DriveElite Net Revenue (15%)", f"₱{total_de:,.2f}")
+            c3.metric("⏳ Pending Affiliate Payouts", f"₱{pending_payouts:,.2f}", delta="-Liabilities", delta_color="inverse")
+            
+            st.divider()
+            f_tabs = st.tabs(["📑 FULL MASTER LEDGER", "📅 DAILY", "🈷️ MONTHLY", "📊 QUARTERLY", "📆 YEARLY", "📤 PROCESS PAYOUTS"])
+            display_cols = ['Ref', 'Date', 'Renter', 'Affiliate', 'Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)', 'Trip_Status', 'Payout_Status']
+            
+            with f_tabs[0]: st.dataframe(df[display_cols].style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+            with f_tabs[1]:
+                daily = df.groupby(df['Date_Clean'].dt.date)[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
+                st.dataframe(daily.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+            with f_tabs[2]:
+                monthly = df.groupby(df['Date_Clean'].dt.to_period('M'))[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
+                monthly['Date_Clean'] = monthly['Date_Clean'].astype(str)
+                st.dataframe(monthly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+            with f_tabs[3]:
+                quarterly = df.groupby(df['Date_Clean'].dt.to_period('Q'))[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
+                quarterly['Date_Clean'] = quarterly['Date_Clean'].astype(str)
+                st.dataframe(quarterly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+            with f_tabs[4]:
+                yearly = df.groupby(df['Date_Clean'].dt.year)[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
+                yearly['Date_Clean'] = yearly['Date_Clean'].astype(str)
+                st.dataframe(yearly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+            with f_tabs[5]:
+                pending_df = df[(df['Trip_Status'] == 'COMPLETED') & (df['Payout_Status'] == 'PENDING')]
+                if pending_df.empty: st.info("No pending affiliate payouts.")
+                for _, p in pending_df.iterrows():
+                    with st.expander(f"{p['Ref']} | {p['Affiliate']} | Amount Due: ₱{p['Affiliate_Share (85%)']:,.2f}"):
+                        st.write(f"*Send To:* {p['bank_name']} | *Account Number:* {p['account_no']}")
+                        if st.button("MARK AS PAID", key=f"pay_{p['id']}", type="primary", use_container_width=True):
+                            conn.execute("UPDATE bookings SET payout_status = 'PAID' WHERE id = ?", (p['id'],)); conn.commit(); st.rerun()
+    except Exception as e: st.error(str(e))
 
-    with c_out:
-        st.subheader("📤 OUTGOING: Pay Affiliates")
-        try:
-            q_pending = "SELECT b.id, u.full_name, v.bank_name, v.account_no, (b.amount * 0.85) as payout FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users u ON v.owner_username = u.username WHERE b.status = 'COMPLETED' AND b.payout_status = 'PENDING'"
-            pending_payouts = pd.read_sql_query(q_pending, conn)
-            if pending_payouts.empty: st.info("No pending affiliate payouts.")
-            for _, p in pending_payouts.iterrows():
-                with st.expander(f"DRV-{p['id']:05d} | {p['full_name']} | ₱{p['payout']:,.2f}"):
-                    st.write(f"*Send To:* {p['bank_name']} | *Account:* {p['account_no']}")
-                    if st.button("MARK AS PAID", key=f"pay_{p['id']}", type="primary", use_container_width=True):
-                        conn.execute("UPDATE bookings SET payout_status = 'PAID' WHERE id = ?", (p['id'],)); conn.commit(); st.rerun()
-        except: pass
-
+# --- THE FIX: SMART SEARCH FILING CABINET ---
 with tabs[4]: 
     st.header("🗄️ Master Digital Filing Cabinet")
-    search_id = st.number_input("Enter Booking ID", min_value=1, step=1)
-    if st.button("PULL FULL CASE FILE"):
-        q = "SELECT b.*, v.make, v.model, r.full_name as rname FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users r ON b.renter_username = r.username WHERE b.id = ?"
-        rec = pd.read_sql_query(q, conn, params=(search_id,))
-        if not rec.empty:
-            r = rec.iloc[0]
-            st.success(f"Record Found: DRV-{r['id']:05d}")
-            st.write("### 📸 10-Point Pre-Dispatch Inspection")
+    
+    q_all = "SELECT b.*, v.make, v.model, v.plate, r.full_name as rname, r.username as r_user, u.full_name as owner_name FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users r ON b.renter_username = r.username JOIN users u ON v.owner_username = u.username"
+    
+    try:
+        df_search = pd.read_sql_query(q_all, conn)
+        
+        search_mode = st.radio("Search Records By:", ["Booking ID", "Renter Name", "Affiliate Name", "Vehicle Plate"], horizontal=True)
+        filtered_df = pd.DataFrame()
+        
+        c_search, _ = st.columns([1, 1])
+        with c_search:
+            if search_mode == "Booking ID":
+                search_val = st.number_input("Enter exact Booking ID", min_value=1, step=1, value=1)
+                if st.button("SEARCH"): filtered_df = df_search[df_search['id'] == search_val]
+            elif search_mode == "Renter Name":
+                r_list = ["-- Select Renter --"] + df_search['rname'].unique().tolist()
+                s_val = st.selectbox("Select a Renter", r_list)
+                if s_val != "-- Select Renter --": filtered_df = df_search[df_search['rname'] == s_val]
+            elif search_mode == "Affiliate Name":
+                a_list = ["-- Select Affiliate --"] + df_search['owner_name'].unique().tolist()
+                s_val = st.selectbox("Select an Affiliate", a_list)
+                if s_val != "-- Select Affiliate --": filtered_df = df_search[df_search['owner_name'] == s_val]
+            elif search_mode == "Vehicle Plate":
+                p_list = ["-- Select Plate --"] + df_search['plate'].unique().tolist()
+                s_val = st.selectbox("Select Vehicle Plate", p_list)
+                if s_val != "-- Select Plate --": filtered_df = df_search[df_search['plate'] == s_val]
+
+        st.divider()
+
+        if not filtered_df.empty:
+            if len(filtered_df) > 1:
+                st.info(f"Found {len(filtered_df)} records. Please select which specific trip you want to view:")
+                b_id = st.selectbox("Select Trip Reference:", filtered_df['id'].apply(lambda x: f"DRV-{x:05d}").tolist())
+                r = filtered_df[filtered_df['id'] == int(b_id.replace("DRV-", ""))].iloc[0]
+            else:
+                r = filtered_df.iloc[0]
             
-            c1, c2, c3, c4 = st.columns(4)
-            if r['actual_dl_img']: c1.image(r['actual_dl_img'], caption="1. Driver's License")
-            if r['front_img']: c2.image(r['front_img'], caption="2. Front Exterior")
-            if r['back_img']: c3.image(r['back_img'], caption="3. Back Exterior")
-            if r['left_img']: c4.image(r['left_img'], caption="4. Left Exterior")
+            st.success(f"Viewing Case File: DRV-{r['id']:05d}")
+            st.write(f"*Vehicle:* {r['make']} {r['model']} ({r['plate']})")
+            st.write(f"*Renter:* {r['rname']} | *Affiliate:* {r['owner_name']}")
+            st.write(f"*Trip Status:* {r['status']}")
             
-            c5, c6, c7, c8 = st.columns(4)
-            if r['right_img']: c5.image(r['right_img'], caption="5. Right Exterior")
-            if r['odometer_img']: c6.image(r['odometer_img'], caption="6. Odometer/Dash")
-            if r['dseat_img']: c7.image(r['dseat_img'], caption="7. Driver Seat")
-            if r['pseat_img']: c8.image(r['pseat_img'], caption="8. Passenger Seat")
+            st.write("### 📸 Pre-Dispatch Visual Proof")
+            st.info("Because photos are bulk-uploaded by Affiliates, they are displayed here as a secure grid.")
             
-            c9, c10, c11, c12 = st.columns(4)
-            if r['trunk_img']: c9.image(r['trunk_img'], caption="9. Inside Trunk")
-            if r['tire_img']: c10.image(r['tire_img'], caption="10. Spare Tire")
+            # The Generic Photo Grid for Bulk Uploads
+            photos = [r['actual_dl_img'], r['front_img'], r['back_img'], r['left_img'], r['right_img'], r['odometer_img'], r['dseat_img'], r['pseat_img'], r['trunk_img'], r['tire_img']]
+            photo_cols = st.columns(5)
+            
+            valid_photos = 0
+            for idx, p in enumerate(photos):
+                if p:
+                    photo_cols[idx % 5].image(p, caption=f"Dispatch Photo {idx+1}")
+                    valid_photos += 1
+                    
+            if valid_photos == 0: st.warning("No pre-dispatch photos were attached to this record.")
             
             if r['damage_img']:
                 st.divider()
                 st.error("⚠️ DAMAGE REPORTED ON RETURN")
                 st.image(r['damage_img'], caption="Proof of Damage", width=400)
-        else: st.error("No record found.")
+    except:
+        st.info("Database is empty or formatting.")
 
 with tabs[5]:
     col_promo, col_cat = st.columns(2)
@@ -197,14 +259,11 @@ with tabs[5]:
     
     st.markdown("<h3 style='text-align: center;'>ALL REGISTERED USERS</h3>", unsafe_allow_html=True)
     try:
-        # NEW: Added Drivers to the Master Database viewer
         db_tabs = st.tabs(["🚙 RENTERS", "💼 AFFILIATES", "👨‍✈️ DRIVERS"])
         q_renters = "SELECT full_name as 'FULLNAME', address as 'ADDRESS', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM users WHERE role = 'RENTER'"
         with db_tabs[0]: st.dataframe(pd.read_sql_query(q_renters, conn), hide_index=True, use_container_width=True)
-        
         q_affiliates = "SELECT full_name as 'FULLNAME', address as 'ADDRESS', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM users WHERE role = 'AFFILIATE'"
         with db_tabs[1]: st.dataframe(pd.read_sql_query(q_affiliates, conn), hide_index=True, use_container_width=True)
-        
         q_drivers = "SELECT first_name || ' ' || last_name as 'FULLNAME', owner_username as 'BELONGS TO AFFILIATE', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM drivers"
         with db_tabs[2]: st.dataframe(pd.read_sql_query(q_drivers, conn), hide_index=True, use_container_width=True)
     except: pass
