@@ -145,15 +145,20 @@ if not st.session_state.get('logged_in') or st.session_state.get('role') != 'AFF
             else: st.error("Invalid credentials.")
     st.stop()
 
-with st.sidebar:
-    st.markdown("<h3 style='text-align: center;'>💼 Affiliate Rules</h3>", unsafe_allow_html=True)
-    st.markdown("* *Safety:* Cars must be safe.\n* *Fee:* 15% Platform Fee.\n* *Checklist:* Mandatory Handover/Return signoffs.\n* *Visibility:* Manage in My Assets.")
+username = st.session_state.username
+
+# --- THE FIX: TOP NAVIGATION & BOLD POLICY BANNER ---
+st.markdown("<h1 style='text-align: center;'>💼 AFFILIATE COMMAND CENTER</h1>", unsafe_allow_html=True)
+top_col1, top_col2 = st.columns([4, 1])
+with top_col1:
+    st.warning("*📋 DRIVEELITE AFFILIATE POLICY:* \n1. *Platform Fee:* DriveElite deducts 15% from total booking revenue. \n2. *Safety:* All registered vehicles must be 100% roadworthy. \n3. *Compliance:* You MUST use this app to collect 10 pre-dispatch photos and digital signatures to be protected against renter damage.")
+with top_col2:
+    st.info(f"👤 *{username.upper()}*")
     if st.button("🔒 LOGOUT", use_container_width=True):
         st.session_state.clear()
         st.rerun()
-
-username = st.session_state.username
-st.markdown("<h1 style='text-align: center;'>💼 COMMAND CENTER</h1>", unsafe_allow_html=True)
+st.divider()
+# ---------------------------------------------------
 
 tabs = st.tabs(["BOOKINGS & HANDOVER", "MY ASSETS", "ADD ASSET", "ADD DRIVER"])
 
@@ -168,7 +173,6 @@ with tabs[0]:
             if f"contract_{t['id']}" in st.session_state:
                 st.success("SUCCESS: Contract successfully generated! Please download it to your phone to share with the renter.")
                 
-                # --- THE FIX: NATIVE STREAMLIT DOWNLOAD BUTTON ---
                 st.download_button(
                     label="📥 DOWNLOAD PDF CONTRACT",
                     data=st.session_state[f"contract_{t['id']}"],
@@ -220,22 +224,9 @@ with tabs[0]:
                         chk_deposit = st.checkbox("[ ] Php 5,000.00 Deposit Confirmed", key=f"hdep_{t['id']}")
                     
                     st.divider()
-                    st.write("* PRE-DISPATCH PHOTOS (10 Mandatory Photos)**")
-                    
-                    p_c1, p_c2, p_c3 = st.columns(3)
-                    with p_c1:
-                        img_dl = st.file_uploader("1. Actual Driver's License", type=['jpg', 'png', 'jpeg'], key=f"p_dl_{t['id']}")
-                        img_front = st.file_uploader("4. Front Exterior", type=['jpg', 'png', 'jpeg'], key=f"p_front_{t['id']}")
-                        img_right = st.file_uploader("7. Right Exterior", type=['jpg', 'png', 'jpeg'], key=f"p_right_{t['id']}")
-                        img_pseat = st.file_uploader("10. Passenger Seat", type=['jpg', 'png', 'jpeg'], key=f"p_pseat_{t['id']}")
-                    with p_c2:
-                        img_odo = st.file_uploader("2. Odometer/Dashboard", type=['jpg', 'png', 'jpeg'], key=f"p_odo_{t['id']}")
-                        img_back = st.file_uploader("5. Back Exterior", type=['jpg', 'png', 'jpeg'], key=f"p_back_{t['id']}")
-                        img_trunk = st.file_uploader("8. Inside Trunk", type=['jpg', 'png', 'jpeg'], key=f"p_trunk_{t['id']}")
-                    with p_c3:
-                        img_dseat = st.file_uploader("3. Driver Seat", type=['jpg', 'png', 'jpeg'], key=f"p_dseat_{t['id']}")
-                        img_left = st.file_uploader("6. Left Exterior", type=['jpg', 'png', 'jpeg'], key=f"p_left_{t['id']}")
-                        img_tire = st.file_uploader("9. Spare Tire", type=['jpg', 'png', 'jpeg'], key=f"p_tire_{t['id']}")
+                    st.write(*📸 PRE-DISPATCH PHOTOS (Bulk Upload)**")
+                    st.info("You can now select all 10 photos at the same time from your phone gallery!")
+                    bulk_photos = st.file_uploader("Upload all photos (ID, Exterior, Interior, Dash, Tire)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True, key=f"bulk_{t['id']}")
 
                     st.divider()
                     c1, c2 = st.columns(2)
@@ -261,19 +252,20 @@ with tabs[0]:
                     if st.button("GENERATE CONTRACT & PREPARE DISPATCH", key=f"ex_{t['id']}", type="primary", use_container_width=True):
                         has_sr = s_r.image_data is not None and len(s_r.json_data.get("objects", [])) > 0
                         has_sa = s_a.image_data is not None and len(s_a.json_data.get("objects", [])) > 0
-                        all_10_photos = [img_front, img_back, img_left, img_right, img_odo, img_dseat, img_pseat, img_tire, img_trunk, img_dl]
                         
-                        if not (chk_tank and chk_ac and chk_wiper and chk_exterior and chk_seats and chk_deposit): st.error("NOTICE: Check off all items.")
-                        elif not all(all_10_photos): st.error("NOTICE: Upload all 10 Pre-Dispatch photos.")
-                        elif not (has_sr and has_sa): st.error("NOTICE: Signatures required.")
+                        if not (chk_tank and chk_ac and chk_wiper and chk_exterior and chk_seats and chk_deposit): 
+                            st.error("NOTICE: Check off all items.")
+                        elif len(bulk_photos) < 10: 
+                            st.error(f"NOTICE: You only uploaded {len(bulk_photos)} photos. Please upload at least 10 photos for your legal protection.")
+                        elif not (has_sr and has_sa): 
+                            st.error("NOTICE: Signatures required.")
                         else:
                             chk_items = ["Full Tank", "Aircon properly functioning", "Wipers properly functioning", "Car checked all around", "Seats / Interior checked", "Php 5,000.00 Deposit Confirmed"]
                             try:
                                 pdf_bytes = generate_contract(t['id'], t['renter_fullname'], f"{t['make']} {t['model']}", t['plate'], chk_items, s_r.image_data, s_a.image_data, is_with_driver, assigned_driver)
                                 
-                                # THE FIX: Store the raw bytes, do not base64 encode!
                                 st.session_state[f"contract_{t['id']}"] = pdf_bytes
-                                st.session_state[f"imgs_{t['id']}"] = [save_file(img) for img in all_10_photos]
+                                st.session_state[f"imgs_{t['id']}"] = [save_file(bulk_photos[i]) for i in range(10)]
                                 st.session_state[f"drv_{t['id']}"] = assigned_driver
                                 st.rerun()
                             except Exception as e: st.error(f"Error: {str(e)}")
@@ -294,7 +286,6 @@ with tabs[0]:
                 refund_amt = st.session_state[f"refund_{t['id']}"]
                 st.success(f"SUCCESS: Settlement calculated! Final Refund: Php {refund_amt:,.2f}")
                 
-                # --- THE FIX: NATIVE STREAMLIT DOWNLOAD BUTTON ---
                 st.download_button(
                     label="📥 DOWNLOAD SETTLEMENT PDF",
                     data=st.session_state[f"ret_receipt_{t['id']}"],
@@ -400,7 +391,6 @@ with tabs[0]:
                         try:
                             pdf_bytes = generate_return_receipt(t['id'], t['renter_fullname'], f"{t['make']} {t['model']}", t['plate'], fuel_deduct, clean_deduct, damage_deduct, late_deduct, ot_fee, rfid_fee, total_deduct, refund_amount, s_ret.image_data, s_reta.image_data, is_with_driver, assigned_driver)
                             
-                            # THE FIX: Store the raw bytes!
                             st.session_state[f"ret_receipt_{t['id']}"] = pdf_bytes
                             st.session_state[f"refund_{t['id']}"] = refund_amount
                             st.session_state[f"dmg_img_{t['id']}"] = save_file(img_damage) if img_damage else None
