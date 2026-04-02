@@ -255,23 +255,34 @@ with tabs[0]:
                 is_with_driver = t.get('with_driver', 0) == 1
                 c1, c2 = st.columns(2)
                 with c1:
+                    # 1. FUEL: Refill Cost + Php 500 Penalty
                     f_ok = st.checkbox("Fuel OK", value=True, key=f"f_{t['id']}"); fuel_deduct = 0.0
-                    if not f_ok: fuel_deduct = st.number_input("Fuel Refill Cost (Php)", step=100.0, key=f"f_cost_{t['id']}")
+                    if not f_ok: 
+                        fuel_refill = st.number_input("Fuel Refill Cost (Php)", step=100.0, key=f"f_cost_{t['id']}")
+                        fuel_deduct = fuel_refill + 500.0
+                        st.warning(f"NOTICE: Refill Cost + Php 500.00 Penalty applied. (Total: Php {fuel_deduct:,.2f})")
                     
+                    # 2. CLEANING: Up to Php 600 Fee
                     c_ok = st.checkbox("Clean OK", value=True, key=f"c_{t['id']}"); clean_deduct = 0.0
-                    if not c_ok: st.warning("Notice: Soiled Vehicle Penalty: Php 500.00 applied."); clean_deduct = 500.0
+                    if not c_ok: 
+                        clean_deduct = st.number_input("Cleaning Penalty (Up to Php 600)", min_value=0.0, max_value=600.0, step=100.0, value=600.0, key=f"c_cost_{t['id']}")
+                        st.warning(f"Notice: Cleaning Penalty of Php {clean_deduct:,.2f} applied.")
                     
+                    # 3. RFID: Load Used + Php 200 Penalty
                     r_ok = st.checkbox("RFID Balanced / Load OK", value=True, key=f"r_{t['id']}"); rfid_fee = 0.0
                     if not r_ok:
-                        rfid_fee = st.number_input("RFID Load Used (Php)", min_value=0.0, step=100.0, key=f"r_cost_{t['id']}")
-                        st.warning(f"NOTICE: RFID Load Deduction of Php {rfid_fee:,.2f} applied.")
+                        rfid_load = st.number_input("RFID Load Used (Php)", min_value=0.0, step=100.0, key=f"r_cost_{t['id']}")
+                        rfid_fee = rfid_load + 200.0
+                        st.warning(f"NOTICE: RFID Load + Php 200.00 Penalty applied. (Total: Php {rfid_fee:,.2f})")
                     
-                    l_ok = st.checkbox("Returned on Time", value=True, key=f"l_{t['id']}"); late_deduct = 0.0
+                    # 4. LATE RETURN: Php 300 / Hour
+                    l_ok = st.checkbox("Returned on Time (inc. 30-min grace)", value=True, key=f"l_{t['id']}"); late_deduct = 0.0
                     if not l_ok:
                         late_hrs = st.number_input("Hours Late", min_value=1, step=1, key=f"l_hrs_{t['id']}")
-                        late_deduct = late_hrs * 500.0
+                        late_deduct = late_hrs * 300.0
                         st.warning(f"NOTICE: Late Penalty of Php {late_deduct:,.2f} applied.")
                     
+                    # 5. DRIVER OVERTIME
                     ot_fee = 0.0
                     if is_with_driver:
                         ot_ok = st.checkbox("Driver Hours OK (No Overtime)", value=True, key=f"ot_chk_{t['id']}")
@@ -280,6 +291,7 @@ with tabs[0]:
                             ot_fee = ot_hrs * 200.0
                             st.warning(f"NOTICE: Driver Overtime Fee of Php {ot_fee:,.2f} applied.")
 
+                    # 6. DAMAGE
                     d_ok = st.checkbox("No Damage Found", value=True, key=f"d_{t['id']}"); damage_deduct = 0.0; img_damage = None
                     if not d_ok:
                         st.error("NOTICE: Damage reported! Upload photo."); img_damage = st.file_uploader("Upload Damage Photo", type=['jpg','png'], key=f"p_dam_{t['id']}")
@@ -289,6 +301,7 @@ with tabs[0]:
                             damage_deduct = panels * 4000.0
                         else: damage_deduct = st.number_input("Repair Shop Estimate (Php)", step=500.0, key=f"d_est_{t['id']}")
                     
+                    # FINAL MATH
                     total_deduct = fuel_deduct + clean_deduct + damage_deduct + rfid_fee + late_deduct + ot_fee
                     refund_amount = 5000.0 - total_deduct
                     st.divider(); st.write(f"*Total Deductions:* Php {total_deduct:,.2f}")
