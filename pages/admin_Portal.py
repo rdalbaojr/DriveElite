@@ -16,14 +16,16 @@ if not st.session_state.get('logged_in') or st.session_state.get('role') != 'ADM
                 st.rerun()
     st.stop()
 
-st.title("🛡️ MASTER COMMAND CENTER")
-
-with st.sidebar:
-    st.markdown("### 👨‍💼 Admin Controls")
-    st.info(f"Logged in as: {st.session_state.username}")
+# --- THE FIX: TOP NAVIGATION BAR INSTEAD OF SIDEBAR ---
+head_col1, head_col2 = st.columns([5, 1])
+with head_col1:
+    st.title("🛡️ MASTER COMMAND CENTER")
+with head_col2:
+    st.info(f"👨‍💼 {st.session_state.username.upper()}")
     if st.button("🔒 LOGOUT", use_container_width=True):
         st.session_state.clear()
         st.rerun()
+# ------------------------------------------------------
 
 tabs = st.tabs(["PENDING APPROVALS", "ASSETS", "LOGISTICS", "FINANCIALS", "🗄️ FILING CABINET", "PROMOS & DB"])
 
@@ -153,15 +155,12 @@ with tabs[3]:
                             conn.execute("UPDATE bookings SET payout_status = 'PAID' WHERE id = ?", (p['id'],)); conn.commit(); st.rerun()
     except Exception as e: st.error(str(e))
 
-# --- THE FIX: SMART SEARCH FILING CABINET ---
 with tabs[4]: 
     st.header("🗄️ Master Digital Filing Cabinet")
-    
     q_all = "SELECT b.*, v.make, v.model, v.plate, r.full_name as rname, r.username as r_user, u.full_name as owner_name FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id JOIN users r ON b.renter_username = r.username JOIN users u ON v.owner_username = u.username"
     
     try:
         df_search = pd.read_sql_query(q_all, conn)
-        
         search_mode = st.radio("Search Records By:", ["Booking ID", "Renter Name", "Affiliate Name", "Vehicle Plate"], horizontal=True)
         filtered_df = pd.DataFrame()
         
@@ -199,9 +198,7 @@ with tabs[4]:
             st.write(f"*Trip Status:* {r['status']}")
             
             st.write("### 📸 Pre-Dispatch Visual Proof")
-            st.info("Because photos are bulk-uploaded by Affiliates, they are displayed here as a secure grid.")
             
-            # The Generic Photo Grid for Bulk Uploads
             photos = [r['actual_dl_img'], r['front_img'], r['back_img'], r['left_img'], r['right_img'], r['odometer_img'], r['dseat_img'], r['pseat_img'], r['trunk_img'], r['tire_img']]
             photo_cols = st.columns(5)
             
@@ -244,17 +241,31 @@ with tabs[5]:
     
     st.divider()
     st.write("🔍 *Quick Profile Viewer (Lookup IDs)*")
-    all_users = pd.read_sql_query("SELECT username, full_name, role, id_img, license_img FROM users WHERE admin_status = 'APPROVED'", conn)
-    if not all_users.empty:
-        user_list = ["-- Select a User --"] + all_users['full_name'].tolist()
-        selected_user = st.selectbox("Search for an Approved User to view their documents:", user_list)
-        if selected_user != "-- Select a User --":
-            u_data = all_users[all_users['full_name'] == selected_user].iloc[0]
+    
+    # 1. Pull Renters and Affiliates
+    u_df = pd.read_sql_query("SELECT full_name, role, id_img, license_img FROM users WHERE admin_status = 'APPROVED'", conn)
+    
+    # 2. Pull Drivers (and format their names to match)
+    d_df = pd.read_sql_query("SELECT first_name || ' ' || last_name as full_name, 'DRIVER' as role, govt_id_img as id_img, license_img FROM drivers WHERE admin_status = 'APPROVED'", conn)
+    
+    # 3. Combine them into one Master List
+    all_profiles = pd.concat([u_df, d_df], ignore_index=True)
+    
+    if not all_profiles.empty:
+        # Add the role tag so you know who is who in the dropdown
+        all_profiles['display_name'] = all_profiles['full_name'] + " (" + all_profiles['role'] + ")"
+        
+        user_list = ["-- Select a Profile --"] + all_profiles['display_name'].tolist()
+        selected_user = st.selectbox("Search for an Approved Profile to view their documents:", user_list)
+        
+        if selected_user != "-- Select a Profile --":
+            u_data = all_profiles[all_profiles['display_name'] == selected_user].iloc[0]
             c_id1, c_id2 = st.columns(2)
             with c_id1:
                 if u_data['id_img']: st.image(u_data['id_img'], caption="GOVT ID")
             with c_id2:
                 if u_data['license_img']: st.image(u_data['license_img'], caption="DRIVER'S LICENSE")
+                
     st.divider()
     
     st.markdown("<h3 style='text-align: center;'>ALL REGISTERED USERS</h3>", unsafe_allow_html=True)
