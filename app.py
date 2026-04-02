@@ -78,12 +78,12 @@ else:
         with st.sidebar:
             st.header("💼 Affiliate Policies")
             st.markdown("""
-            *1. Vehicle Condition:* Cars must be registered, insured, safe, and clean.
-            *2. Platform Fee:* DriveElite retains a 18% fee. You receive 82%.
-            *3. Payouts:* Processed once journey is "COMPLETED".
-            *4. Handover:* You must verify Renter ID and complete digital checklist.
-            *5. GPS:* For your Secuirty, GPS must be installed minus audio.
-            *6. Visibility:* Cars listed as "LIVE" must be ready to book.
+            * *Vehicle Condition:* Cars must be registered, insured, safe, and clean.
+            * *Platform Fee:* DriveElite retains an 18% fee. You receive 82%.
+            * *Payouts:* Processed once journey is "COMPLETED".
+            * *Handover:* You must verify Renter ID and complete the digital checklist.
+            * *GPS:* For your security, GPS must be installed minus audio.
+            * *Visibility:* Cars listed as "LIVE" must be ready to book.
             """)
             st.info("You must agree to these terms to register.")
 
@@ -138,13 +138,13 @@ else:
         with st.sidebar:
             st.header("📝 Renter Policies")
             st.markdown("""
-            *1. Fuel Policy:* Return with same fuel level. Missing fuel incurs a refill cost + ₱500 fee.
-            *2. Cleanliness:* Return clean. Excessive dirt incurs up to ₱ 600 fee.
-            *3. Damage:* You are fully responsible for damages incurred during booking.
-            *4. Late Returns:* 30-min grace period. Then strict ₱300/hour late fee.
-            *5. RFID:* Load Approximated RFID Amount for your convenience. If not Loaded +200 Load fee.
-            *6. Speedlimit:* Observe Speddlimit all the time to avoid Penanlties.
-            *7. Permitted Use:* Personal transport only. No racing/towing and not permissible to Interisland.
+            * *Fuel Policy:* Return with same fuel level. Missing fuel incurs a refill cost + ₱500 fee.
+            * *Cleanliness:* Return clean. Excessive dirt incurs up to ₱600 fee.
+            * *Damage:* You are fully responsible for damages incurred during booking.
+            * *Late Returns:* 30-min grace period. Then strict ₱300/hour late fee.
+            * *RFID:* Load Approximated RFID Amount for your convenience. If not Loaded +₱200 Load fee.
+            * *Speed Limit:* Observe speed limit at all times to avoid penalties.
+            * *Permitted Use:* Personal transport only. No racing/towing and interisland travel is strictly prohibited.
             """)
             st.info("You must agree to these terms to register.")
 
