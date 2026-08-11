@@ -14,7 +14,12 @@ def save_file(uploaded_file):
         return path
     return None
 
+# ==========================================
+# 1. PAGE CONFIG & UI INITIALIZATION
+# ==========================================
 st.set_page_config(page_title="DriveElite Registration", layout="wide")
+
+# --- CORE CSS ---
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
@@ -24,6 +29,131 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# 🧭 2DA-STYLE CUSTOM DROPDOWN MENU
+# ==========================================
+st.markdown("""
+<style>
+    /* 1. Hide the confusing default Streamlit sidebar toggle */
+    [data-testid="collapsedControl"] { 
+        display: none !important; 
+    }
+
+    /* 2. Container for the new custom menu */
+    .custom-menu-container {
+        position: fixed;
+        top: 12px;
+        left: 15px;
+        z-index: 999999;
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    /* 3. The main "Menu" button (DriveElite Blue) */
+    .custom-menu-btn {
+        background-color: #2563EB; 
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        font-size: 16px;
+        font-weight: 800;
+        border-radius: 8px;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.2s;
+    }
+    
+    .custom-menu-btn:hover {
+        background-color: #1D4ED8;
+    }
+
+    /* 4. The Dropdown List */
+    .custom-menu-dropdown {
+        display: none; /* Hidden until clicked */
+        position: absolute;
+        top: 50px;
+        left: 0;
+        background-color: #1E293B; /* Sleek Dark Theme */
+        min-width: 220px;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        overflow: hidden;
+        flex-direction: column;
+    }
+
+    /* Animation class triggered by JS */
+    .custom-menu-dropdown.show {
+        display: flex;
+        animation: slideDown 0.2s ease-out;
+    }
+
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 5. The Links inside the Dropdown */
+    .custom-menu-dropdown a {
+        color: #F8FAFC;
+        padding: 16px 20px;
+        text-decoration: none;
+        font-size: 15px;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        transition: background 0.2s, padding-left 0.2s;
+    }
+
+    .custom-menu-dropdown a:last-child {
+        border-bottom: none;
+    }
+
+    /* Hover effect makes the link slide right slightly */
+    .custom-menu-dropdown a:hover {
+        background-color: #334155; 
+        color: #60A5FA;
+        padding-left: 25px; 
+    }
+</style>
+
+<!-- HTML STRUCTURE -->
+<div class="custom-menu-container">
+    <button class="custom-menu-btn" onclick="toggleCustomMenu()">
+        ≡ Menu
+    </button>
+    <div class="custom-menu-dropdown" id="deCustomMenu">
+        <a href="?portal=JOIN" target="_self">🔑 Join / Login</a>
+        <a href="?portal=RENTER" target="_self">🚙 Renter Portal</a>
+        <a href="?portal=AFFILIATE" target="_self">💼 Host Dashboard</a>
+        <a href="?portal=ADMIN" target="_self">⚙️ Admin Command</a>
+    </div>
+</div>
+
+<!-- JAVASCRIPT LOGIC -->
+<script>
+    function toggleCustomMenu() {
+        document.getElementById("deCustomMenu").classList.toggle("show");
+    }
+    
+    window.onclick = function(event) {
+        if (!event.target.matches('.custom-menu-btn')) {
+            var dropdowns = document.getElementsByClassName("custom-menu-dropdown");
+            for (var i = 0; i < dropdowns.length; i++) {
+                var openDropdown = dropdowns[i];
+                if (openDropdown.classList.contains('show')) {
+                    openDropdown.classList.remove('show');
+                }
+            }
+        }
+    }
+</script>
+""", unsafe_allow_html=True)
+
+
+# ==========================================
+# 2. STATE & DATABASE SETUP
+# ==========================================
 conn = get_connection()
 
 if 'otp_pending' not in st.session_state: st.session_state.otp_pending = False
@@ -32,7 +162,7 @@ if 'generated_otp' not in st.session_state: st.session_state.generated_otp = ""
 if 'verify_contact' not in st.session_state: st.session_state.verify_contact = ""
 
 # ==========================================
-# OTP VERIFICATION SCREEN
+# 3. OTP VERIFICATION SCREEN
 # ==========================================
 if st.session_state.otp_pending:
     st.title("🔒 Phone Number Verification")
@@ -65,27 +195,38 @@ if st.session_state.otp_pending:
             st.rerun()
 
 # ==========================================
-# MAIN REGISTRATION SCREEN
+# 4. MAIN REGISTRATION SCREEN
 # ==========================================
 else:
+    # Add a bit of spacing so the title doesn't hide under the new menu
+    st.write("<br>", unsafe_allow_html=True)
+    
+    # --- ADD YOUR LOGO HERE ---
+    try:
+        st.image("logo.png", width=250) # Adjust the width number to make it bigger/smaller
+    except:
+        pass
+        
     st.title("🚗 Welcome to DriveElite")
     st.write("Join the premier peer-to-peer car rental network. Select your account type below to begin.")
 
     reg_type = st.radio("I want to register as a:", ["Select...", "Affiliate", "Renter"], horizontal=True)
     st.divider()
 
+    # --- AFFILIATE FLOW ---
     if reg_type == "Affiliate":
-        with st.sidebar:
-            st.header("💼 Affiliate Policies")
+        
+        # Policies moved to an expander for Mobile UX
+        st.info("⚠️ Please read and agree to the policies below to register.")
+        with st.expander("📖 Affiliate Policies (Required)", expanded=True):
             st.markdown("""
-            * *Vehicle Condition:* Cars must be registered, insured, safe, and clean.
-            * *Platform Fee:* DriveElite retains an 18% fee. You receive 82%.
-            * *Payouts:* Processed once journey is "COMPLETED".
-            * *Handover:* You must verify Renter ID and complete the digital checklist.
-            * *GPS:* For your security, GPS must be installed minus audio.
-            * *Visibility:* Cars listed as "LIVE" must be ready to book.
+            * **Vehicle Condition:** Cars must be registered, insured, safe, and clean.
+            * **Platform Fee:** DriveElite retains an 18% fee. You receive 82%.
+            * **Payouts:** Processed once journey is "COMPLETED".
+            * **Handover:** You must verify Renter ID and complete the digital checklist.
+            * **GPS:** For your security, GPS must be installed minus audio.
+            * **Visibility:** Cars listed as "LIVE" must be ready to book.
             """)
-            st.info("You must agree to these terms to register.")
 
         st.subheader("💼 Affiliate Partner Registration")
         with st.form("affiliate_reg_form"):
@@ -116,12 +257,12 @@ else:
             lic_id = c10.file_uploader("Upload Driver's License", type=['jpg', 'png'])
             
             st.divider()
-            agreed = st.checkbox("✅ I have read, understood, and agree to the Affiliate Policies & 15% Platform Fee rules in the sidebar.")
+            agreed = st.checkbox("✅ I have read, understood, and agree to the Affiliate Policies & 15% Platform Fee rules shown above.")
             
             if st.form_submit_button("Submit Partner Registration", type="primary"):
                 full_name = f"{first_name} {middle_name} {surname}".replace("  ", " ").strip()
                 
-                if not agreed: st.error("🚨 Registration Blocked: You must agree to the terms in the sidebar.")
+                if not agreed: st.error("🚨 Registration Blocked: You must check the agreement box.")
                 elif password != confirm_password: st.error("🚨 Passwords do not match. Please try again.")
                 elif first_name and surname and username and password and gov_id and lic_id and contact and nationality:
                     if not pd.read_sql_query("SELECT username FROM users WHERE username=?", conn, params=(username,)).empty:
@@ -134,19 +275,21 @@ else:
                         st.rerun()
                 else: st.error("⚠️ Please fill out all required fields and upload BOTH IDs.")
 
+    # --- RENTER FLOW ---
     elif reg_type == "Renter":
-        with st.sidebar:
-            st.header("📝 Renter Policies")
+        
+        # Policies moved to an expander for Mobile UX
+        st.info("⚠️ Please read and agree to the policies below to register.")
+        with st.expander("📝 Renter Policies (Required)", expanded=True):
             st.markdown("""
-            * *Fuel Policy:* Return with same fuel level. Missing fuel incurs a refill cost + ₱500 fee.
-            * *Cleanliness:* Return clean. Excessive dirt incurs up to ₱600 fee.
-            * *Damage:* You are fully responsible for damages incurred during booking.
-            * *Late Returns:* 30-min grace period. Then strict ₱300/hour late fee.
-            * *RFID:* Load Approximated RFID Amount for your convenience. If not Loaded +₱200 Load fee.
-            * *Speed Limit:* Observe speed limit at all times to avoid penalties.
-            * *Permitted Use:* Personal transport only. No racing/towing and interisland travel is strictly prohibited.
+            * **Fuel Policy:** Return with same fuel level. Missing fuel incurs a refill cost + ₱500 fee.
+            * **Cleanliness:** Return clean. Excessive dirt incurs up to ₱600 fee.
+            * **Damage:** You are fully responsible for damages incurred during booking.
+            * **Late Returns:** 30-min grace period. Then strict ₱300/hour late fee.
+            * **RFID:** Load Approximated RFID Amount for your convenience. If not Loaded +₱200 Load fee.
+            * **Speed Limit:** Observe speed limit at all times to avoid penalties.
+            * **Permitted Use:** Personal transport only. No racing/towing and interisland travel is strictly prohibited.
             """)
-            st.info("You must agree to these terms to register.")
 
         st.subheader("🚙 Renter Registration")
         with st.form("renter_reg_form"):
@@ -177,12 +320,12 @@ else:
             lic_id = c10.file_uploader("Upload Driver's License", type=['jpg', 'png'])
             
             st.divider()
-            agreed = st.checkbox("✅ I have read, understood, and agree to the DriveElite Renter Policies shown in the sidebar.")
+            agreed = st.checkbox("✅ I have read, understood, and agree to the DriveElite Renter Policies shown above.")
             
             if st.form_submit_button("Submit Registration", type="primary"):
                 full_name = f"{first_name} {middle_name} {surname}".replace("  ", " ").strip()
                 
-                if not agreed: st.error("🚨 Registration Blocked: You must agree to the terms in the sidebar.")
+                if not agreed: st.error("🚨 Registration Blocked: You must check the agreement box.")
                 elif password != confirm_password: st.error("🚨 Passwords do not match. Please try again.")
                 elif first_name and surname and username and password and gov_id and lic_id and contact and nationality:
                     if not pd.read_sql_query("SELECT username FROM users WHERE username=?", conn, params=(username,)).empty:
