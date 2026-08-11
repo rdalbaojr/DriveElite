@@ -3,7 +3,7 @@ import pandas as pd
 from database_utils import get_connection
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="DriveElite Messenger", layout="centered")
+st.set_page_config(page_title="DriveElite Messenger", page_icon="logo.png", layout="wide")
 
 # ==========================================
 # 🧭 DRIVEELITE THEMED CUSTOM MENU
