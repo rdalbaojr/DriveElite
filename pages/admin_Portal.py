@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from database_utils import get_connection
 
-st.set_page_config(page_title="DriveElite Admin", layout="wide")
+st.set_page_config(page_title="DriveElite...", page_icon="logo.png", layout="wide")
 
 # ==========================================
 # 🧭 DRIVEELITE THEMED CUSTOM MENU
