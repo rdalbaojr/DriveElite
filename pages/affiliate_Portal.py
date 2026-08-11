@@ -109,6 +109,80 @@ def generate_return_receipt(booking_id, renter, vehicle, plate, fuel, clean, dam
 # --------------------------------------------------
 
 st.set_page_config(page_title="DriveElite Affiliate Portal", layout="wide")
+
+# ==========================================
+# 🧭 DRIVEELITE THEMED CUSTOM MENU
+# ==========================================
+st.markdown("""
+<style>
+    /* Hide the confusing default Streamlit sidebar toggle (>> or >) */
+    [data-testid="collapsedControl"], button[kind="header"] { 
+        display: none !important; 
+    }
+
+    /* Container for the new custom menu */
+    .custom-menu-container {
+        position: fixed; top: 15px; left: 15px; z-index: 999999;
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    /* Main "Menu" button (DriveElite Clean Theme) */
+    .custom-menu-btn {
+        background-color: #FFFFFF; color: #0F172A;
+        border: 1px solid #CBD5E1; padding: 8px 16px;
+        font-size: 15px; font-weight: 700; border-radius: 8px;
+        cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;
+    }
+    .custom-menu-btn:hover {
+        background-color: #F8FAFC; border-color: #94A3B8; box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+
+    /* Dropdown List */
+    .custom-menu-dropdown {
+        display: none; position: absolute; top: 45px; left: 0;
+        background-color: #FFFFFF; min-width: 220px; border-radius: 12px;
+        border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        overflow: hidden; flex-direction: column;
+    }
+    .custom-menu-dropdown.show { display: flex; animation: popDown 0.2s ease-out; }
+    @keyframes popDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Links inside the Dropdown */
+    .custom-menu-dropdown a {
+        color: #475569; padding: 14px 20px; text-decoration: none;
+        font-size: 14px; font-weight: 600; border-bottom: 1px solid #F1F5F9; transition: all 0.2s;
+    }
+    .custom-menu-dropdown a:last-child { border-bottom: none; }
+    .custom-menu-dropdown a:hover { background-color: #F8FAFC; color: #2563EB; padding-left: 24px; }
+</style>
+
+<div class="custom-menu-container">
+    <button class="custom-menu-btn" onclick="toggleCustomMenu()">
+        <span style="font-size: 18px;">≡</span> Menu
+    </button>
+    <div class="custom-menu-dropdown" id="deCustomMenu">
+        <a href="?portal=JOIN" target="_self">🔑 Join / Login</a>
+        <a href="?portal=RENTER" target="_self">🚙 Renter Portal</a>
+        <a href="?portal=AFFILIATE" target="_self">💼 Host Dashboard</a>
+        <a href="?portal=ADMIN" target="_self">⚙️ Admin Command</a>
+    </div>
+</div>
+
+<script>
+    function toggleCustomMenu() { document.getElementById("deCustomMenu").classList.toggle("show"); }
+    window.onclick = function(event) {
+        if (!event.target.matches('.custom-menu-btn') && !event.target.closest('.custom-menu-btn')) {
+            var dropdowns = document.getElementsByClassName("custom-menu-dropdown");
+            for (var i = 0; i < dropdowns.length; i++) {
+                if (dropdowns[i].classList.contains('show')) { dropdowns[i].classList.remove('show'); }
+            }
+        }
+    }
+</script>
+""", unsafe_allow_html=True)
+
+
 conn = get_connection()
 
 # Loads master pricing
@@ -121,13 +195,13 @@ except Exception: FIXED_RATES = {"Sedan": 1500.0}
 if not st.session_state.get('logged_in') or st.session_state.get('role') != 'AFFILIATE':
     logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
     with logo_col2:
-        try: st.image("logo.png", use_container_width=True)
+        try: st.image("logo.png")
         except: pass
     st.markdown("<h2 style='text-align: center;'>💼 AFFILIATE LOGIN</h2>", unsafe_allow_html=True)
     with st.form("login", clear_on_submit=True):
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
-        if st.form_submit_button("LOGIN", use_container_width=True):
+        if st.form_submit_button("LOGIN"):
             user = pd.read_sql_query("SELECT * FROM users WHERE username=? AND password=? AND role='AFFILIATE'", conn, params=(u, p))
             if not user.empty:
                 status = user.iloc[0]['admin_status']
@@ -146,10 +220,10 @@ username = st.session_state.username
 st.markdown("<h1 style='text-align: center;'>💼 AFFILIATE COMMAND CENTER</h1>", unsafe_allow_html=True)
 top_col_logo, top_col1, top_col2 = st.columns([1, 4, 1])
 with top_col_logo:
-    try: st.image("logo.png", use_container_width=True)
+    try: st.image("logo.png")
     except: pass
 with top_col2:
-    if st.button("🔒 LOGOUT", use_container_width=True):
+    if st.button("🔒 LOGOUT"):
         st.session_state.clear()
         st.rerun()
 st.divider()
@@ -173,9 +247,9 @@ with tabs[0]:
         with st.expander(f"RELEASE: {t['make']} {t['model']} ({t['plate']}) - Renter: {t['renter_fullname']}"):
             if f"contract_{t['id']}" in st.session_state:
                 st.success("SUCCESS: Contract generated! Download to your phone & share via messenger.")
-                st.download_button("📥 DOWNLOAD PDF CONTRACT", data=st.session_state[f"contract_{t['id']}"], file_name=f"Contract_DRV_{t['id']:05d}.pdf", mime="application/pdf", use_container_width=True)
+                st.download_button("📥 DOWNLOAD PDF CONTRACT", data=st.session_state[f"contract_{t['id']}"], file_name=f"Contract_DRV_{t['id']:05d}.pdf", mime="application/pdf")
                 
-                if st.button("FINISH & RELEASE VEHICLE (START TRIP)", key=f"fin_{t['id']}", type="primary", use_container_width=True):
+                if st.button("FINISH & RELEASE VEHICLE (START TRIP)", key=f"fin_{t['id']}", type="primary"):
                     imgs = st.session_state.get(f"imgs_{t['id']}", [None]*10)
                     ass_driver = st.session_state.get(f"drv_{t['id']}", "")
                     conn.execute("""UPDATE bookings SET status = 'ONGOING', 
@@ -207,16 +281,16 @@ with tabs[0]:
                         st.write("Renter Signature"); sig_label_r = "Driver" if is_with_driver else "Affiliate"
                         if f"clr_sr_{t['id']}" not in st.session_state: st.session_state[f"clr_sr_{t['id']}"] = 0
                         s_r = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=250, display_toolbar=False, key=f"sr_{t['id']}_{st.session_state[f'clr_sr_{t['id']}']}")
-                        if st.button("Clear Renter", key=f"btn_sr_{t['id']}", use_container_width=True):
+                        if st.button("Clear Renter", key=f"btn_sr_{t['id']}"):
                             st.session_state[f"clr_sr_{t['id']}"] += 1; st.rerun()
                     with c2:
                         st.write(f"{sig_label_r} Signature")
                         if f"clr_sa_{t['id']}" not in st.session_state: st.session_state[f"clr_sa_{t['id']}"] = 0
                         s_a = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=250, display_toolbar=False, key=f"sa_{t['id']}_{st.session_state[f'clr_sa_{t['id']}']}")
-                        if st.button("Clear Partner", key=f"btn_sa_{t['id']}", use_container_width=True):
+                        if st.button("Clear Partner", key=f"btn_sa_{t['id']}"):
                             st.session_state[f"clr_sa_{t['id']}"] += 1; st.rerun()
                     
-                    if st.button("GENERATE CONTRACT & DISPATCH", key=f"ex_{t['id']}", type="primary", use_container_width=True):
+                    if st.button("GENERATE CONTRACT & DISPATCH", key=f"ex_{t['id']}", type="primary"):
                         has_sr = s_r.image_data is not None and len(s_r.json_data.get("objects", [])) > 0
                         has_sa = s_a.image_data is not None and len(s_a.json_data.get("objects", [])) > 0
                         if not (chk_tank and chk_exterior and chk_deposit): st.error("Check off all items.")
@@ -244,8 +318,8 @@ with tabs[0]:
         with st.expander(f"RECEIVE RETURN: {t['make']} {t['model']} ({t['plate']}) - Renter: {t['renter_fullname']}"):
             if f"ret_receipt_{t['id']}" in st.session_state:
                 refund_amt = st.session_state[f"refund_{t['id']}"]; st.success(f"SUCCESS: Settlement calculated! Refund: Php {refund_amt:,.2f}")
-                st.download_button("📥 DOWNLOAD SETTLEMENT PDF", data=st.session_state[f"ret_receipt_{t['id']}"], file_name=f"Settlement_DRV_{t['id']:05d}.pdf", mime="application/pdf", use_container_width=True)
-                if st.button("CLOSE BOOKING & RELEASE RENTER", key=f"fin_ret_{t['id']}", type="primary", use_container_width=True):
+                st.download_button("📥 DOWNLOAD SETTLEMENT PDF", data=st.session_state[f"ret_receipt_{t['id']}"], file_name=f"Settlement_DRV_{t['id']:05d}.pdf", mime="application/pdf")
+                if st.button("CLOSE BOOKING & RELEASE RENTER", key=f"fin_ret_{t['id']}", type="primary"):
                     d_img_path = st.session_state.get(f"dmg_img_{t['id']}", None)
                     conn.execute("UPDATE bookings SET amount = amount - ?, status = 'COMPLETED', damage_img = ? WHERE id = ?", (refund_amt, d_img_path, t['id'])); conn.execute("UPDATE vehicles SET booking_status = 'AVAILABLE' WHERE id = ?", (t['vehicle_id'],)); conn.commit()
                     for k in [f"ret_receipt_{t['id']}", f"refund_{t['id']}", f"dmg_img_{t['id']}"]:
@@ -313,16 +387,16 @@ with tabs[0]:
                         st.write("Renter Final sign-off")
                         if f"clr_sret_{t['id']}" not in st.session_state: st.session_state[f"clr_sret_{t['id']}"] = 0
                         s_ret = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=150, display_toolbar=False, key=f"sret_{t['id']}_{st.session_state[f'clr_sret_{t['id']}']}")
-                        if st.button("Clear Renter", key=f"btn_sret_{t['id']}", use_container_width=True):
+                        if st.button("Clear Renter", key=f"btn_sret_{t['id']}"):
                             st.session_state[f"clr_sret_{t['id']}"] += 1; st.rerun()
                     with c_ret2:
                         st.write("Partner Final sign-off")
                         if f"clr_sreta_{t['id']}" not in st.session_state: st.session_state[f"clr_sreta_{t['id']}"] = 0
                         s_reta = st_canvas(stroke_width=2, stroke_color="#000", background_color="#eee", height=150, width=150, display_toolbar=False, key=f"sreta_{t['id']}_{st.session_state[f'clr_sreta_{t['id']}']}")
-                        if st.button("Clear Partner", key=f"btn_sreta_{t['id']}", use_container_width=True):
+                        if st.button("Clear Partner", key=f"btn_sreta_{t['id']}"):
                             st.session_state[f"clr_sreta_{t['id']}"] += 1; st.rerun()
                 
-                if st.button("GENERATE SETTLEMENT & COMPLETE JOURNEY", key=f"comp_{t['id']}", type="primary", use_container_width=True):
+                if st.button("GENERATE SETTLEMENT & COMPLETE JOURNEY", key=f"comp_{t['id']}", type="primary"):
                     has_sret = s_ret.image_data is not None and len(s_ret.json_data.get("objects", [])) > 0
                     has_sreta = s_reta.image_data is not None and len(s_reta.json_data.get("objects", [])) > 0
                     if not d_ok and not img_damage: st.error("Damage photo required before settling.")
@@ -392,7 +466,7 @@ with tabs[3]:
         my_drivers = pd.read_sql_query("SELECT first_name, last_name, contact_number, admin_status FROM drivers WHERE owner_username = ?", conn, params=(username,))
         if not my_drivers.empty: 
             st.markdown("### MY DRIVERS")
-            st.dataframe(my_drivers, hide_index=True, use_container_width=True)
+            st.dataframe(my_drivers, hide_index=True)
         else: 
             st.info("No drivers registered.")
     except: pass
