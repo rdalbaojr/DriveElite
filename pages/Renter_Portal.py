@@ -4,7 +4,7 @@ import datetime
 import time
 from database_utils import get_connection
 
-st.set_page_config(page_title="DriveElite...", page_icon="logo.png", layout="wide")
+st.set_page_config(page_title="DriveElite renter", page_icon="logo.png", layout="wide")
 
 # ==========================================
 # 🧭 DRIVEELITE THEMED CUSTOM MENU
