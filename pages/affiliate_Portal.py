@@ -108,7 +108,7 @@ def generate_return_receipt(booking_id, renter, vehicle, plate, fuel, clean, dam
     return pdf.output(dest="S").encode("latin-1")
 # --------------------------------------------------
 
-st.set_page_config(page_title="DriveElite Affiliate Portal", layout="wide")
+st.set_page_config(page_title="DriveElite Affiliate Portal", page_icon="logo.png", layout="wide")
 
 # ==========================================
 # 🧭 DRIVEELITE THEMED CUSTOM MENU
