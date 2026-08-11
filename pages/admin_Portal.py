@@ -3,6 +3,80 @@ import pandas as pd
 from database_utils import get_connection
 
 st.set_page_config(page_title="DriveElite Admin", layout="wide")
+
+# ==========================================
+# 🧭 DRIVEELITE THEMED CUSTOM MENU
+# ==========================================
+st.markdown("""
+<style>
+    /* Hide the confusing default Streamlit sidebar toggle (>> or >) */
+    [data-testid="collapsedControl"], button[kind="header"] { 
+        display: none !important; 
+    }
+
+    /* Container for the new custom menu */
+    .custom-menu-container {
+        position: fixed; top: 15px; left: 15px; z-index: 999999;
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+
+    /* Main "Menu" button (DriveElite Clean Theme) */
+    .custom-menu-btn {
+        background-color: #FFFFFF; color: #0F172A;
+        border: 1px solid #CBD5E1; padding: 8px 16px;
+        font-size: 15px; font-weight: 700; border-radius: 8px;
+        cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;
+    }
+    .custom-menu-btn:hover {
+        background-color: #F8FAFC; border-color: #94A3B8; box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+    }
+
+    /* Dropdown List */
+    .custom-menu-dropdown {
+        display: none; position: absolute; top: 45px; left: 0;
+        background-color: #FFFFFF; min-width: 220px; border-radius: 12px;
+        border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        overflow: hidden; flex-direction: column;
+    }
+    .custom-menu-dropdown.show { display: flex; animation: popDown 0.2s ease-out; }
+    @keyframes popDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Links inside the Dropdown */
+    .custom-menu-dropdown a {
+        color: #475569; padding: 14px 20px; text-decoration: none;
+        font-size: 14px; font-weight: 600; border-bottom: 1px solid #F1F5F9; transition: all 0.2s;
+    }
+    .custom-menu-dropdown a:last-child { border-bottom: none; }
+    .custom-menu-dropdown a:hover { background-color: #F8FAFC; color: #2563EB; padding-left: 24px; }
+</style>
+
+<div class="custom-menu-container">
+    <button class="custom-menu-btn" onclick="toggleCustomMenu()">
+        <span style="font-size: 18px;">≡</span> Menu
+    </button>
+    <div class="custom-menu-dropdown" id="deCustomMenu">
+        <a href="?portal=JOIN" target="_self">🔑 Join / Login</a>
+        <a href="?portal=RENTER" target="_self">🚙 Renter Portal</a>
+        <a href="?portal=AFFILIATE" target="_self">💼 Host Dashboard</a>
+        <a href="?portal=ADMIN" target="_self">⚙️ Admin Command</a>
+    </div>
+</div>
+
+<script>
+    function toggleCustomMenu() { document.getElementById("deCustomMenu").classList.toggle("show"); }
+    window.onclick = function(event) {
+        if (!event.target.matches('.custom-menu-btn') && !event.target.closest('.custom-menu-btn')) {
+            var dropdowns = document.getElementsByClassName("custom-menu-dropdown");
+            for (var i = 0; i < dropdowns.length; i++) {
+                if (dropdowns[i].classList.contains('show')) { dropdowns[i].classList.remove('show'); }
+            }
+        }
+    }
+</script>
+""", unsafe_allow_html=True)
+
+
 conn = get_connection()
 
 if not st.session_state.get('logged_in') or st.session_state.get('role') != 'ADMIN':
@@ -16,13 +90,13 @@ if not st.session_state.get('logged_in') or st.session_state.get('role') != 'ADM
                 st.rerun()
     st.stop()
 
-# --- THE FIX: TOP NAVIGATION BAR INSTEAD OF SIDEBAR ---
+# --- TOP NAVIGATION BAR ---
 head_col1, head_col2 = st.columns([5, 1])
 with head_col1:
     st.title("🛡️ MASTER COMMAND CENTER")
 with head_col2:
     st.info(f"👨‍💼 {st.session_state.username.upper()}")
-    if st.button("🔒 LOGOUT", use_container_width=True):
+    if st.button("🔒 LOGOUT"):
         st.session_state.clear()
         st.rerun()
 # ------------------------------------------------------
@@ -42,7 +116,7 @@ with tabs[0]:
                 c_img1, c_img2 = st.columns(2)
                 if r.get('id_img'): c_img1.image(r['id_img'], caption="Passport / Govt ID")
                 if r.get('license_img'): c_img2.image(r['license_img'], caption="Driver's License")
-                if st.button("APPROVE RENTER", key=f"ra_{r['id']}", type="primary", use_container_width=True):
+                if st.button("APPROVE RENTER", key=f"ra_{r['id']}", type="primary"):
                     conn.execute("UPDATE users SET admin_status = 'APPROVED' WHERE id = ?", (r['id'],)); conn.commit(); st.rerun()
 
     with p_tabs[1]:
@@ -54,7 +128,7 @@ with tabs[0]:
                 c_img1, c_img2 = st.columns(2)
                 if r.get('id_img'): c_img1.image(r['id_img'], caption="Passport / Govt ID")
                 if r.get('license_img'): c_img2.image(r['license_img'], caption="Driver's License") 
-                if st.button("APPROVE AFFILIATE", key=f"aa_{r['id']}", type="primary", use_container_width=True):
+                if st.button("APPROVE AFFILIATE", key=f"aa_{r['id']}", type="primary"):
                     conn.execute("UPDATE users SET admin_status = 'APPROVED' WHERE id = ?", (r['id'],)); conn.commit(); st.rerun()
 
     with p_tabs[2]:
@@ -67,7 +141,7 @@ with tabs[0]:
                 c_img1, c_img2 = st.columns(2)
                 if d.get('govt_id_img'): c_img1.image(d['govt_id_img'], caption="Govt ID")
                 if d.get('license_img'): c_img2.image(d['license_img'], caption="Professional License")
-                if st.button("APPROVE DRIVER", key=f"da_{d['id']}", type="primary", use_container_width=True):
+                if st.button("APPROVE DRIVER", key=f"da_{d['id']}", type="primary"):
                     conn.execute("UPDATE drivers SET admin_status = 'APPROVED' WHERE id = ?", (d['id'],)); conn.commit(); st.rerun()
 
 with tabs[1]:
@@ -129,29 +203,29 @@ with tabs[3]:
             f_tabs = st.tabs(["📑 FULL MASTER LEDGER", "📅 DAILY", "🈷️ MONTHLY", "📊 QUARTERLY", "📆 YEARLY", "📤 PROCESS PAYOUTS"])
             display_cols = ['Ref', 'Date', 'Renter', 'Affiliate', 'Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)', 'Trip_Status', 'Payout_Status']
             
-            with f_tabs[0]: st.dataframe(df[display_cols].style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+            with f_tabs[0]: st.dataframe(df[display_cols].style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), hide_index=True)
             with f_tabs[1]:
                 daily = df.groupby(df['Date_Clean'].dt.date)[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
-                st.dataframe(daily.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+                st.dataframe(daily.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), hide_index=True)
             with f_tabs[2]:
                 monthly = df.groupby(df['Date_Clean'].dt.to_period('M'))[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
                 monthly['Date_Clean'] = monthly['Date_Clean'].astype(str)
-                st.dataframe(monthly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+                st.dataframe(monthly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), hide_index=True)
             with f_tabs[3]:
                 quarterly = df.groupby(df['Date_Clean'].dt.to_period('Q'))[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
                 quarterly['Date_Clean'] = quarterly['Date_Clean'].astype(str)
-                st.dataframe(quarterly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+                st.dataframe(quarterly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), hide_index=True)
             with f_tabs[4]:
                 yearly = df.groupby(df['Date_Clean'].dt.year)[['Gross_Revenue', 'Affiliate_Share (85%)', 'DriveElite_Fee (15%)']].sum().reset_index()
                 yearly['Date_Clean'] = yearly['Date_Clean'].astype(str)
-                st.dataframe(yearly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), use_container_width=True, hide_index=True)
+                st.dataframe(yearly.style.format({'Gross_Revenue': '₱{:,.2f}', 'Affiliate_Share (85%)': '₱{:,.2f}', 'DriveElite_Fee (15%)': '₱{:,.2f}'}), hide_index=True)
             with f_tabs[5]:
                 pending_df = df[(df['Trip_Status'] == 'COMPLETED') & (df['Payout_Status'] == 'PENDING')]
                 if pending_df.empty: st.info("No pending affiliate payouts.")
                 for _, p in pending_df.iterrows():
                     with st.expander(f"{p['Ref']} | {p['Affiliate']} | Amount Due: ₱{p['Affiliate_Share (85%)']:,.2f}"):
                         st.write(f"*Send To:* {p['bank_name']} | *Account Number:* {p['account_no']}")
-                        if st.button("MARK AS PAID", key=f"pay_{p['id']}", type="primary", use_container_width=True):
+                        if st.button("MARK AS PAID", key=f"pay_{p['id']}", type="primary"):
                             conn.execute("UPDATE bookings SET payout_status = 'PAID' WHERE id = ?", (p['id'],)); conn.commit(); st.rerun()
     except Exception as e: st.error(str(e))
 
@@ -272,9 +346,9 @@ with tabs[5]:
     try:
         db_tabs = st.tabs(["🚙 RENTERS", "💼 AFFILIATES", "👨‍✈️ DRIVERS"])
         q_renters = "SELECT full_name as 'FULLNAME', address as 'ADDRESS', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM users WHERE role = 'RENTER'"
-        with db_tabs[0]: st.dataframe(pd.read_sql_query(q_renters, conn), hide_index=True, use_container_width=True)
+        with db_tabs[0]: st.dataframe(pd.read_sql_query(q_renters, conn), hide_index=True)
         q_affiliates = "SELECT full_name as 'FULLNAME', address as 'ADDRESS', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM users WHERE role = 'AFFILIATE'"
-        with db_tabs[1]: st.dataframe(pd.read_sql_query(q_affiliates, conn), hide_index=True, use_container_width=True)
+        with db_tabs[1]: st.dataframe(pd.read_sql_query(q_affiliates, conn), hide_index=True)
         q_drivers = "SELECT first_name || ' ' || last_name as 'FULLNAME', owner_username as 'BELONGS TO AFFILIATE', contact_number as 'CONTACT NO.', admin_status as 'ADMIN STATUS' FROM drivers"
-        with db_tabs[2]: st.dataframe(pd.read_sql_query(q_drivers, conn), hide_index=True, use_container_width=True)
+        with db_tabs[2]: st.dataframe(pd.read_sql_query(q_drivers, conn), hide_index=True)
     except: pass
