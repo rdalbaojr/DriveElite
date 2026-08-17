@@ -2,14 +2,8 @@ import sqlite3
 import os
 
 def get_connection():
-    # --- THE FIX: SMART DATABASE PATH ---
-    # If Render's persistent disk exists, use it. Otherwise, save locally (for testing).
-    if os.path.exists("/data"):
-        db_path = "/data/driveelite_v2.db"
-    else:
-        db_path = "driveelite_v2.db"
-        
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    # Still using our v2 database!
+    conn = sqlite3.connect("driveelite_v2.db", check_same_thread=False)
     
     # Users Table
     conn.execute('''CREATE TABLE IF NOT EXISTS users
