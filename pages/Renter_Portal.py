@@ -4,80 +4,7 @@ import datetime
 import time
 from database_utils import get_connection
 
-st.set_page_config(page_title="DriveElite Renter Portal", page_icon="logo.png", layout="wide")
-
-# ==========================================
-# 🧭 DRIVEELITE THEMED CUSTOM MENU
-# ==========================================
-st.markdown("""
-<style>
-    /* Hide the confusing default Streamlit sidebar toggle (>> or >) */
-    [data-testid="collapsedControl"], button[kind="header"] { 
-        display: none !important; 
-    }
-
-    /* Container for the new custom menu */
-    .custom-menu-container {
-        position: fixed; top: 15px; left: 15px; z-index: 999999;
-        font-family: 'Inter', -apple-system, sans-serif;
-    }
-
-    /* Main "Menu" button (DriveElite Clean Theme) */
-    .custom-menu-btn {
-        background-color: #FFFFFF; color: #0F172A;
-        border: 1px solid #CBD5E1; padding: 8px 16px;
-        font-size: 15px; font-weight: 700; border-radius: 8px;
-        cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;
-    }
-    .custom-menu-btn:hover {
-        background-color: #F8FAFC; border-color: #94A3B8; box-shadow: 0 4px 6px rgba(0,0,0,0.08);
-    }
-
-    /* Dropdown List */
-    .custom-menu-dropdown {
-        display: none; position: absolute; top: 45px; left: 0;
-        background-color: #FFFFFF; min-width: 220px; border-radius: 12px;
-        border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        overflow: hidden; flex-direction: column;
-    }
-    .custom-menu-dropdown.show { display: flex; animation: popDown 0.2s ease-out; }
-    @keyframes popDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* Links inside the Dropdown */
-    .custom-menu-dropdown a {
-        color: #475569; padding: 14px 20px; text-decoration: none;
-        font-size: 14px; font-weight: 600; border-bottom: 1px solid #F1F5F9; transition: all 0.2s;
-    }
-    .custom-menu-dropdown a:last-child { border-bottom: none; }
-    .custom-menu-dropdown a:hover { background-color: #F8FAFC; color: #2563EB; padding-left: 24px; }
-</style>
-
-<div class="custom-menu-container">
-    <button class="custom-menu-btn" onclick="toggleCustomMenu()">
-        <span style="font-size: 18px;">≡</span> Menu
-    </button>
-    <div class="custom-menu-dropdown" id="deCustomMenu">
-        <a href="?portal=JOIN" target="_self">🔑 Join / Login</a>
-        <a href="?portal=RENTER" target="_self">🚙 Renter Portal</a>
-        <a href="?portal=AFFILIATE" target="_self">💼 Host Dashboard</a>
-        <a href="?portal=ADMIN" target="_self">⚙️ Admin Command</a>
-    </div>
-</div>
-
-<script>
-    function toggleCustomMenu() { document.getElementById("deCustomMenu").classList.toggle("show"); }
-    window.onclick = function(event) {
-        if (!event.target.matches('.custom-menu-btn') && !event.target.closest('.custom-menu-btn')) {
-            var dropdowns = document.getElementsByClassName("custom-menu-dropdown");
-            for (var i = 0; i < dropdowns.length; i++) {
-                if (dropdowns[i].classList.contains('show')) { dropdowns[i].classList.remove('show'); }
-            }
-        }
-    }
-</script>
-""", unsafe_allow_html=True)
-
+st.set_page_config(page_title="DriveElite Showroom", layout="wide")
 
 st.markdown("""
 <style>
@@ -96,13 +23,13 @@ if not st.session_state.get('logged_in') or st.session_state.get('role') != 'REN
     # Logo placement centered
     logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
     with logo_col2:
-        try: st.image("logo.png")
+        try: st.image("logo.png", use_container_width=True)
         except: pass
     st.markdown("<h2 style='text-align: center;'>🚙 RENTER ACCESS</h2>", unsafe_allow_html=True)
     with st.form("login_renter"):
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
-        if st.form_submit_button("LOGIN TO SHOWROOM"):
+        if st.form_submit_button("LOGIN TO SHOWROOM", use_container_width=True):
             user = pd.read_sql_query("SELECT * FROM users WHERE username=? AND password=? AND role='RENTER'", conn, params=(u, p))
             if not user.empty:
                 if user.iloc[0]['admin_status'] == 'APPROVED':
@@ -119,11 +46,11 @@ renter_user = st.session_state.username
 st.markdown("<h1 style='text-align: center;'>💼 RENTER COMMAND CENTER</h1>", unsafe_allow_html=True)
 top_col_logo, top_col1, top_col2 = st.columns([1, 4, 1])
 with top_col_logo:
-    try: st.image("logo.png")
+    try: st.image("logo.png", use_container_width=True)
     except: pass
 
 with top_col2:
-    if st.button("🔒 LOGOUT"):
+    if st.button("🔒 LOGOUT", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 st.divider()
@@ -161,7 +88,7 @@ with tabs[0]:
             with st.container(border=True):
                 col1, col2 = st.columns([1, 2])
                 with col1:
-                    if car.get('vehicle_img'): st.image(car['vehicle_img'])
+                    if car.get('vehicle_img'): st.image(car['vehicle_img'], use_container_width=True)
                 with col2:
                     st.write(f"### {car['make']} {car['model']} ({car['year']})")
                     
@@ -207,10 +134,10 @@ with tabs[0]:
                         
                         c_loc1, c_loc2 = st.columns(2)
                         p_zone = c_loc1.selectbox("Pickup Zone", list(DELIVERY_ZONES.keys()), key=f"pzone_{car['id']}")
-                        p_exact = c_loc1.text_input("Exact Pickup Address", placeholder="e.g., NAIA Terminal 3 (Arrivals Bay 8)", key=f"pexact_{car['id']}")
+                        p_exact = c_loc1.text_input("Exact Pickup Address", key=f"pexact_{car['id']}")
                         
                         r_zone = c_loc2.selectbox("Return Zone", list(DELIVERY_ZONES.keys()), key=f"rzone_{car['id']}")
-                        r_exact = c_loc2.text_input("Exact Return Address", placeholder="e.g., SM Megamall Fashion Hall", key=f"rexact_{car['id']}")
+                        r_exact = c_loc2.text_input("Exact Return Address", key=f"rexact_{car['id']}")
                         
                         delivery_fee = DELIVERY_ZONES[p_zone]
                         return_fee = DELIVERY_ZONES[r_zone]
@@ -231,10 +158,6 @@ with tabs[0]:
                         days = (r_date - p_date).days if (r_date - p_date).days > 0 else 1
                         subtotal = days * car['approved_price']
                         
-                        # --- 1-DAY PREMIUM SURCHARGE ---
-                        if days == 1:
-                            subtotal += 500.0
-                        
                         driver_fee = days * 1000.0 if is_with_driver else 0.0
                         
                         discount_pct = 0
@@ -254,18 +177,11 @@ with tabs[0]:
                         
                         # Billing calculation box
                         bill_html = '<div class="bill-box"><table style="width:100%">'
-                        if days == 1:
-                            base_disp = subtotal - 500.0
-                            bill_html += f'<tr><td>Base Rental (1 Day)</td><td style="text-align:right">₱{base_disp:,.2f}</td></tr>'
-                            bill_html += f'<tr><td style="color:#d35400;">Single Day Surcharge</td><td style="text-align:right; color:#d35400;">+ ₱500.00</td></tr>'
-                        else:
-                            bill_html += f'<tr><td>Rental ({days} Days)</td><td style="text-align:right">₱{subtotal:,.2f}</td></tr>'
-                            
+                        bill_html += f'<tr><td>Rental ({days} Days)</td><td style="text-align:right">₱{subtotal:,.2f}</td></tr>'
                         if is_with_driver: bill_html += f'<tr><td style="color:#0056b3">Driver Fee</td><td style="text-align:right; color:#0056b3">+ ₱{driver_fee:,.2f}</td></tr>'
                         if delivery_fee > 0: bill_html += f'<tr><td style="color:#e67e22">Delivery Fee</td><td style="text-align:right; color:#e67e22">+ ₱{delivery_fee:,.2f}</td></tr>'
                         if return_fee > 0: bill_html += f'<tr><td style="color:#e67e22">Collection Fee</td><td style="text-align:right; color:#e67e22">+ ₱{return_fee:,.2f}</td></tr>'
-                        if savings > 0: bill_html += f'<tr><td style="color:red">Discount</td><td style="text-align:right; color:red">- ₱{savings:,.2f}</td></tr>'
-                        
+                        bill_html += f'<tr><td style="color:red">Discount</td><td style="text-align:right; color:red">- ₱{savings:,.2f}</td></tr>'
                         bill_html += f'<tr><td style="color:green">Deposit</td><td style="text-align:right; color:green">+ ₱{deposit:,.2f}</td></tr>'
                         bill_html += f'<tr style="border-top:2px solid #000"><td><b>GRAND TOTAL</b></td><td style="text-align:right"><b>₱{grand_total:,.2f}</b></td></tr>'
                         bill_html += '</table></div>'
@@ -275,13 +191,13 @@ with tabs[0]:
                         pay_method = st.radio("Payment", ["GCash / Maya"], key=f"pay_{car['id']}") # CC offline
                         
                         # GCash flow
-                        try: st.image("gcash_qr.jpg", caption=f"Scan to Pay: ₱{grand_total:,.2f}")
+                        try: st.image("gcash_qr.jpg", caption=f"Scan to Pay: ₱{grand_total:,.2f}", width=250)
                         except: st.warning("⚠️ Admin: Upload 'gcash_qr.jpg' to main folder.")
                         
                         ref_num = st.text_input("Enter Reference Number *", key=f"ref_{car['id']}")
                         
                         # Final confirm button
-                        if st.button("CONFIRM BOOKING & PAYMENT", type="primary", key=f"btn_{car['id']}"):
+                        if st.button("CONFIRM BOOKING & PAYMENT", type="primary", use_container_width=True, key=f"btn_{car['id']}"):
                             if not luzon_agree: st.error("❌ You must agree to the LUZON-ONLY policy.")
                             elif not dest or (delivery_fee > 0 and not p_exact) or (return_fee > 0 and not r_exact): st.error("Please fill required address details.")
                             elif not ref_num: st.error("GCash Reference Number required.")
