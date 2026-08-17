@@ -35,93 +35,92 @@ st.markdown("""
 st.markdown("""
 <style>
     /* 1. Hide the confusing default Streamlit sidebar toggle */
-    [data-testid="collapsedControl"], button[kind="header"] { 
+    [data-testid="collapsedControl"] { 
         display: none !important; 
     }
 
     /* 2. Container for the new custom menu */
     .custom-menu-container {
         position: fixed;
-        top: 15px;
+        top: 12px;
         left: 15px;
         z-index: 999999;
         font-family: 'Inter', -apple-system, sans-serif;
     }
 
-    /* 3. The main "Menu" button (DriveElite Clean Theme) */
+    /* 3. The main "Menu" button (DriveElite Blue) */
     .custom-menu-btn {
-        background-color: #FFFFFF; 
-        color: #0F172A;
-        border: 1px solid #CBD5E1;
-        padding: 8px 16px;
-        font-size: 15px;
-        font-weight: 700;
+        background-color: #2563EB; 
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        font-size: 16px;
+        font-weight: 800;
         border-radius: 8px;
         cursor: pointer;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         display: flex;
         align-items: center;
         gap: 8px;
-        transition: all 0.2s ease;
+        transition: background-color 0.2s;
     }
     
     .custom-menu-btn:hover {
-        background-color: #F8FAFC; 
-        border-color: #94A3B8;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        background-color: #1D4ED8;
     }
 
     /* 4. The Dropdown List */
     .custom-menu-dropdown {
-        display: none; 
+        display: none; /* Hidden until clicked */
         position: absolute;
-        top: 45px;
+        top: 50px;
         left: 0;
-        background-color: #FFFFFF; 
+        background-color: #1E293B; /* Sleek Dark Theme */
         min-width: 220px;
-        border-radius: 12px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         overflow: hidden;
         flex-direction: column;
     }
 
+    /* Animation class triggered by JS */
     .custom-menu-dropdown.show {
         display: flex;
-        animation: popDown 0.2s ease-out;
+        animation: slideDown 0.2s ease-out;
     }
 
-    @keyframes popDown {
-        from { opacity: 0; transform: translateY(-5px); }
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
         to { opacity: 1; transform: translateY(0); }
     }
 
     /* 5. The Links inside the Dropdown */
     .custom-menu-dropdown a {
-        color: #475569;
-        padding: 14px 20px;
+        color: #F8FAFC;
+        padding: 16px 20px;
         text-decoration: none;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 600;
-        border-bottom: 1px solid #F1F5F9;
-        transition: all 0.2s;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        transition: background 0.2s, padding-left 0.2s;
     }
 
     .custom-menu-dropdown a:last-child {
         border-bottom: none;
     }
 
+    /* Hover effect makes the link slide right slightly */
     .custom-menu-dropdown a:hover {
-        background-color: #F8FAFC; 
-        color: #2563EB;
-        padding-left: 24px; 
+        background-color: #334155; 
+        color: #60A5FA;
+        padding-left: 25px; 
     }
 </style>
 
 <!-- HTML STRUCTURE -->
 <div class="custom-menu-container">
     <button class="custom-menu-btn" onclick="toggleCustomMenu()">
-        <span style="font-size: 18px;">≡</span> Menu
+        ≡ Menu
     </button>
     <div class="custom-menu-dropdown" id="deCustomMenu">
         <a href="?portal=JOIN" target="_self">🔑 Join / Login</a>
@@ -138,11 +137,12 @@ st.markdown("""
     }
     
     window.onclick = function(event) {
-        if (!event.target.matches('.custom-menu-btn') && !event.target.closest('.custom-menu-btn')) {
+        if (!event.target.matches('.custom-menu-btn')) {
             var dropdowns = document.getElementsByClassName("custom-menu-dropdown");
             for (var i = 0; i < dropdowns.length; i++) {
-                if (dropdowns[i].classList.contains('show')) {
-                    dropdowns[i].classList.remove('show');
+                var openDropdown = dropdowns[i];
+                if (openDropdown.classList.contains('show')) {
+                    openDropdown.classList.remove('show');
                 }
             }
         }
@@ -174,8 +174,7 @@ if st.session_state.otp_pending:
         user_otp = st.text_input("Enter the 6-Digit OTP sent to your phone", max_chars=6)
         
         c1, c2 = st.columns(2)
-        # -> REMOVED use_container_width=True BELOW
-        if c1.form_submit_button("VERIFY & COMPLETE REGISTRATION", type="primary"):
+        if c1.form_submit_button("VERIFY & COMPLETE REGISTRATION", type="primary", use_container_width=True):
             if user_otp == st.session_state.generated_otp:
                 try:
                     p = st.session_state.reg_payload
@@ -191,8 +190,7 @@ if st.session_state.otp_pending:
             else:
                 st.error("❌ Incorrect OTP. Please try again.")
                 
-        # -> REMOVED use_container_width=True BELOW
-        if c2.form_submit_button("CANCEL & GO BACK"):
+        if c2.form_submit_button("CANCEL & GO BACK", use_container_width=True):
             st.session_state.otp_pending = False
             st.rerun()
 
@@ -205,7 +203,7 @@ else:
     
     # --- ADD YOUR LOGO HERE ---
     try:
-        st.image("logo.png", width=250) 
+        st.image("logo.png", width=250) # Adjust the width number to make it bigger/smaller
     except:
         pass
         
