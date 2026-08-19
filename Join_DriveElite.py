@@ -82,14 +82,14 @@ if 'verify_email' not in st.session_state: st.session_state.verify_email = "" # 
 
 # --- 🚀 NEW BREVO EMAIL ENGINE ---
 def get_api_key():
-    if "BREVO_API_KEY" in st.secrets:
-        return st.secrets["BREVO_API_KEY"]
-    return os.environ.get("BREVO_API_KEY")
 
+       
+    return "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"
 def get_sender_email():
-    if "email_sender" in st.secrets:
-        return st.secrets["email_sender"]
-    return os.environ.get("email_sender")
+    
+   
+        return "contact@driveelite.ph"
+ 
 
 def send_otp(recipient_email, otp_code):
     url = "https://api.brevo.com/v3/smtp/email"
