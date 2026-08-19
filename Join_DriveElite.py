@@ -82,7 +82,7 @@ if 'verify_email' not in st.session_state: st.session_state.verify_email = "" # 
 
 # --- 🚀 NEW BREVO EMAIL ENGINE ---
 def get_api_key():
-    if "BREVO_API_KEY" in st.secrets:
+    if "BREVO_RENDER" in st.secrets:
         return st.secrets["BREVO_RENDER"]
     return os.environ.get("BREVO_RENDER")
 
